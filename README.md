@@ -21,7 +21,7 @@ LavalinkManager lavalinkManager = new LavalinkManager(client, new LavalinkManage
 });
 ```
 
-Once you have set up the LavalinkManager you will need to make sure you start it. It is recommended you put this in the ready event.
+Once you a LavalinkManager it will need to be started. It is recommended you put this in the ready event.
 
 ```csharp
 client.Ready += async () =>
