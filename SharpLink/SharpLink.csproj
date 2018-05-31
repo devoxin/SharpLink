@@ -2,6 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Description>A lavalink wrapper for Discord.Net</Description>
+    <Copyright>Luke, NovusTheory</Copyright>
+    <PackageLicenseUrl>https://github.com/Devoxin/SharpLink/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl></PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Devoxin/SharpLink</RepositoryUrl>
+    <PackageTags>discord, discord.net, lavalink</PackageTags>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>1.0.0-beta</Version>
   </PropertyGroup>
 
   <ItemGroup>
