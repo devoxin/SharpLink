@@ -2,6 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Version>1.0.0-beta</Version>
+    <Authors>Luke, NovusTheory</Authors>
+    <Company />
+    <PackageLicenseUrl>https://github.com/Devoxin/SharpLink/blob/master/LICENSE</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/Devoxin/SharpLink</RepositoryUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Discord.Net" Version="2.0.0-beta" />
+  </ItemGroup>
 
 </Project>
