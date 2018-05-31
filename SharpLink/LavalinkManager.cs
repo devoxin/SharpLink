@@ -1,11 +1,11 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
+using SharpLink.Enums;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SharpLink
@@ -16,42 +16,28 @@ namespace SharpLink
         private LavalinkManagerConfig config;
         private DiscordSocketClient discordClient;
         private Dictionary<ulong, LavalinkPlayer> players = new Dictionary<ulong, LavalinkPlayer>();
+        private int connectionWait = 3000;
+        private CancellationTokenSource lavalinkCancellation;
 
         /// <summary>
         /// Initiates a new Lavalink node connection
         /// </summary>
         /// <param name="discordClient"></param>
         /// <param name="config"></param>
-        public LavalinkManager(DiscordSocketClient discordClient, LavalinkManagerConfig config)
+        public LavalinkManager(DiscordSocketClient discordClient, LavalinkManagerConfig config = null)
         {
-            this.config = config;
+            this.config = config ?? new LavalinkManagerConfig();
             this.discordClient = discordClient;
 
             // Setup the socket client events
-            discordClient.VoiceServerUpdated += (voiceServer) =>
+            discordClient.VoiceServerUpdated += async (voiceServer) =>
             {
                 Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "VOICE_SERVER_UPDATE(" + voiceServer.Guild.Id + ")"));
 
-                JObject eventData = new JObject();
-                eventData.Add("token", voiceServer.Token);
-                eventData.Add("guild_id", voiceServer.Guild.Id.ToString());
-                eventData.Add("endpoint", voiceServer.Endpoint);
-
-                JObject data = new JObject();
-                data.Add("op", "voiceUpdate");
-                data.Add("guildId", voiceServer.Guild.Id.ToString());
-                data.Add("sessionId", players[voiceServer.Guild.Id]?.GetSessionId());
-                data.Add("event", eventData);
-
-                Task.Run(async () =>
-                {
-                    await webSocket.SendAsync(data.ToString());
-                });
-
-                return Task.CompletedTask;
+                await players[voiceServer.Guild.Id].UpdateSessionAsync(SessionChange.Connect, voiceServer);
             };
 
-            discordClient.UserVoiceStateUpdated += (user, oldVoiceState, newVoiceState) =>
+            discordClient.UserVoiceStateUpdated += async (user, oldVoiceState, newVoiceState) =>
             {
                 // We only need voice state updates for the current user
                 if (user.Id == discordClient.CurrentUser.Id)
@@ -61,16 +47,32 @@ namespace SharpLink
                         Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "VOICE_STATE_UPDATE(" + newVoiceState.VoiceChannel.Guild.Id + ", Connected)"));
 
                         // Connected
-                        players[newVoiceState.VoiceChannel.Guild.Id]?.SetSessionId(newVoiceState.VoiceSessionId);
+                        LavalinkPlayer player = players[newVoiceState.VoiceChannel.Guild.Id];
+                        player?.SetSessionId(newVoiceState.VoiceSessionId);
                     }
                     else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
                     {
                         Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "VOICE_STATE_UPDATE(" + oldVoiceState.VoiceChannel.Guild.Id + ", Disconnected)"));
 
                         // Disconnected
-                        players[oldVoiceState.VoiceChannel.Guild.Id]?.SetSessionId("");
+                        LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
+                        player?.SetSessionId("");
+
+                        await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
+
+                        players.Remove(oldVoiceState.VoiceChannel.Guild.Id);
                     }
                 }
+            };
+
+            discordClient.Disconnected += (exception) =>
+            {
+                foreach(KeyValuePair<ulong, LavalinkPlayer> player in players)
+                {
+                    player.Value.DisconnectAsync().GetAwaiter();
+                }
+
+                players.Clear();
 
                 return Task.CompletedTask;
             };
@@ -91,6 +93,46 @@ namespace SharpLink
             return discordClient;
         }
 
+        internal LavalinkWebSocket GetWebSocket()
+        {
+            return webSocket;
+        }
+
+        private void ConnectWebSocket()
+        {
+            // Continuously attempt connections to Lavalink
+            Task.Run(async () =>
+            {
+                while (!webSocket.IsConnected())
+                {
+                    if (lavalinkCancellation.IsCancellationRequested)
+                        break;
+
+                    try
+                    {
+                        await webSocket.Connect();
+                    }
+                    catch (Exception ex)
+                    {
+                        connectionWait = connectionWait + 3000;
+                        Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Failed to connect to Lavalink node. Waiting " + connectionWait/1000 + " seconds", ex));
+                    }
+
+                    if (!webSocket.IsConnected())
+                    {
+                        connectionWait = connectionWait + 3000;
+                        Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Failed to connect to Lavalink node. Waiting " + connectionWait / 1000 + " seconds"));
+                    }
+
+                    await Task.Delay(connectionWait);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Starts the lavalink connection
+        /// </summary>
+        /// <returns></returns>
         public Task StartAsync()
         {
             return Task.Run(() =>
@@ -98,9 +140,109 @@ namespace SharpLink
                 if (discordClient.CurrentUser == null)
                     throw new InvalidOperationException("Can't connect when CurrentUser is null. Please wait until Discord connects");
 
+                lavalinkCancellation = new CancellationTokenSource();
+
                 // Setup the lavalink websocket connection
                 webSocket = new LavalinkWebSocket(this, config);
-                webSocket.Connect();
+
+                webSocket.OnReceive += (message) =>
+                {
+                    // TODO: Implement stats event
+                    switch((string)message["op"])
+                    {
+                        case "playerUpdate":
+                            {
+                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (PLAYER_UPDATE)"));
+
+                                ulong guildId = (ulong)message["guildId"];
+
+                                if (players.ContainsKey(guildId))
+                                {
+                                    players[guildId].FireEvent(Event.PlayerUpdate, message["state"]["position"]);
+                                }
+
+                                break;
+                            }
+
+                        case "event":
+                            {
+                                ulong guildId = (ulong)message["guildId"];
+
+                                if (players.ContainsKey(guildId))
+                                {
+                                    switch ((string)message["type"])
+                                    {
+                                        case "TrackEndEvent":
+                                            {
+                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_END_EVENT)"));
+
+                                                players[guildId].FireEvent(Event.TrackEnd, message["reason"]);
+
+                                                break;
+                                            }
+
+                                        case "TrackExceptionEvent":
+                                            {
+                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_EXCEPTION_EVENT)"));
+
+                                                players[guildId].FireEvent(Event.TrackException, message["error"]);
+
+                                                break;
+                                            }
+
+                                        case "TrackStuckEvent":
+                                            {
+                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_STUCK_EVENT)"));
+
+                                                players[guildId].FireEvent(Event.TrackStuck, message["thresholdMs"]);
+
+                                                break;
+                                            }
+
+                                        default:
+                                            {
+                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", $"Warning: Unknown Event Type ({(string)message["type"]})"));
+
+                                                break;
+                                            }
+                                    }
+                                }
+
+                                break;
+                            }
+
+                        default:
+                            {
+                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Unknown Dispatch (" + ((string)message["op"]).ToUpper() + ")"));
+
+                                break;
+                            }
+                    }
+
+                    return Task.CompletedTask;
+                };
+
+                webSocket.OnClosed += (closeStatus, closeDescription) =>
+                {
+                    ConnectWebSocket();
+
+                    return Task.CompletedTask;
+                };
+
+                ConnectWebSocket();
+            });
+        }
+
+        /// <summary>
+        /// Stops the lavalink connection
+        /// </summary>
+        /// <returns></returns>
+        public Task StopAsync()
+        {
+            return Task.Run(async () =>
+            {
+                lavalinkCancellation.Cancel();
+                await webSocket.Disconnect();
             });
         }
 
@@ -113,6 +255,9 @@ namespace SharpLink
         {
             if (players.ContainsKey(voiceChannel.GuildId))
                 throw new InvalidOperationException("This guild is already actively connected");
+
+            // Disconnect from the channel first for a fresh session id
+            await voiceChannel.DisconnectAsync();
 
             LavalinkPlayer player = new LavalinkPlayer(this, voiceChannel);
             players.Add(voiceChannel.GuildId, player);
@@ -140,12 +285,12 @@ namespace SharpLink
         /// Leaves a voice channel
         /// </summary>
         /// <param name="guildId"></param>
-        public void Leave(ulong guildId)
+        public async Task LeaveAsync(ulong guildId)
         {
             if (!players.ContainsKey(guildId))
                 throw new InvalidOperationException("This guild is not actively connected");
 
-            // TODO: Disconnect the guild
+            await players[guildId].DisconnectAsync();
         }
 
         /// <summary>

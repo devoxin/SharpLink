@@ -1,8 +1,6 @@
 ﻿using Discord;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -18,7 +16,10 @@ namespace SharpLink
         private LavalinkManager manager;
         private LavalinkManagerConfig config;
 
-        // TODO: Implement events
+        #region EVENTS
+        public event Func<JObject, Task> OnReceive;
+        public event Func<WebSocketCloseStatus?, string, Task> OnClosed;
+        #endregion
 
         internal LavalinkWebSocket(LavalinkManager manager, LavalinkManagerConfig config)
         {
@@ -27,7 +28,7 @@ namespace SharpLink
             hostUri = new Uri($"ws://{config.WebSocketHost}:{config.WebSocketPort}");
         }
 
-        private async Task ConnectWebSocket()
+        private async Task ConnectWebSocketAsync()
         {
             webSocket = new ClientWebSocket();
             webSocket.Options.SetRequestHeader("Authorization", config.Authorization);
@@ -44,8 +45,14 @@ namespace SharpLink
                 string jsonString = await ReceiveAsync(webSocket);
                 JObject json = JObject.Parse(jsonString);
 
-                Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "New message:\n" + jsonString));
+                OnReceive?.Invoke(json).ConfigureAwait(false);
             }
+        }
+
+        private async Task DisconnectWebSocketAsync()
+        {
+            if (webSocket != null)
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
         }
 
         private async Task<string> ReceiveAsync(ClientWebSocket webSocket)
@@ -63,7 +70,7 @@ namespace SharpLink
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    // TODO: Do something when it closes (like reconnect/call events/etc..)
+                    OnClosed?.Invoke(result.CloseStatus, result.CloseStatusDescription).GetAwaiter();
                     Connected = false;
                     Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Disconnected from Lavalink node"));
                 }
@@ -94,9 +101,14 @@ namespace SharpLink
             await webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
-        internal void Connect()
+        internal async Task Connect()
         {
-            ConnectWebSocket().GetAwaiter();
+            await ConnectWebSocketAsync();
+        }
+
+        internal async Task Disconnect()
+        {
+            await DisconnectWebSocketAsync();
         }
     }
 }

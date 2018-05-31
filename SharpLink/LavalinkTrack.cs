@@ -1,23 +1,19 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SharpLink
 {
     public class LavalinkTrack
     {
-        public string TrackId;
-        public string Identifier;
-        public bool IsSeekable;
-        public string Author;
-        public TimeSpan Length;
-        public bool IsStream;
-        public int Position;
-        public string Title;
-        public string Url;
+        public readonly string TrackId;
+        public readonly string Identifier;
+        public readonly bool IsSeekable;
+        public readonly string Author;
+        public readonly TimeSpan Length;
+        public readonly bool IsStream;
+        public readonly int Position;
+        public readonly string Title;
+        public readonly string Url;
 
         internal LavalinkTrack(string trackJson)
         {
@@ -28,8 +24,8 @@ namespace SharpLink
             Identifier = (string)jsonTrack["info"]["identifier"];
             IsSeekable = (bool)jsonTrack["info"]["isSeekable"];
             Author = (string)jsonTrack["info"]["author"];
-            Length = TimeSpan.FromMilliseconds((int)jsonTrack["info"]["length"]);
             IsStream = (bool)jsonTrack["info"]["isStream"];
+            Length = (IsStream ? TimeSpan.MaxValue : TimeSpan.FromMilliseconds((int)jsonTrack["info"]["length"]));
             Position = (int)jsonTrack["info"]["position"];
             Title = (string)jsonTrack["info"]["title"];
             Url = (string)jsonTrack["info"]["uri"];
