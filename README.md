@@ -1,5 +1,6 @@
 # SharpLink
 A lavalink wrapper for Discord.Net!
+[![NuGet Pre Release](https://img.shields.io/nuget/vpre/Microsoft.AspNet.Mvc.svg?style=flat-square)](https://www.nuget.org/packages/SharpLink/1.0.0-beta)
 
 # Getting Started
 Here is some example code to help get you started with SharpLink.
