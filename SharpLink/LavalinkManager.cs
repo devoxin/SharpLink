@@ -41,7 +41,7 @@ namespace SharpLink
             {
                 Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "VOICE_SERVER_UPDATE(" + voiceServer.Guild.Id + ")"));
 
-                await players[voiceServer.Guild.Id].UpdateSessionAsync(SessionChange.Connect, voiceServer);
+                await players[voiceServer.Guild.Id]?.UpdateSessionAsync(SessionChange.Connect, voiceServer);
             };
 
             discordClient.UserVoiceStateUpdated += async (user, oldVoiceState, newVoiceState) =>
@@ -63,11 +63,13 @@ namespace SharpLink
 
                         // Disconnected
                         LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
-                        player?.SetSessionId("");
 
-                        await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
-
-                        players.Remove(oldVoiceState.VoiceChannel.Guild.Id);
+                        if (player != null)
+                        {
+                            player.SetSessionId("");
+                            await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
+                            players.Remove(oldVoiceState.VoiceChannel.Guild.Id);
+                        }
                     }
                 }
             };
