@@ -162,6 +162,7 @@ namespace SharpLink
 
                 case Event.TrackException:
                     {
+                        currentTrack = null;
                         Playing = false;
 
                         break;
@@ -169,6 +170,7 @@ namespace SharpLink
 
                 case Event.TrackStuck:
                     {
+                        currentTrack = null;
                         Playing = false;
 
                         break;
