@@ -8,6 +8,10 @@
     <PackageLicenseUrl>https://github.com/Devoxin/SharpLink/blob/master/LICENSE</PackageLicenseUrl>
     <RepositoryUrl>https://github.com/Devoxin/SharpLink</RepositoryUrl>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Description>A lavalink wrapper for Discord.Net</Description>
+    <PackageTags>Discord, discord, discordapp, Discord.Net, discord.net, Lavalink, lavalink</PackageTags>
+    <PackageReleaseNotes>Initial beta release</PackageReleaseNotes>
+    <PackageProjectUrl>https://github.com/Devoxin/SharpLink</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
