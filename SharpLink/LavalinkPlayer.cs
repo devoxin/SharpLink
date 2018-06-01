@@ -1,9 +1,4 @@
-﻿using Discord;
-using Discord.WebSocket;
-using Newtonsoft.Json.Linq;
-using SharpLink.Enums;
-using System;
-using System.Threading.Tasks;
+﻿using SharpLink.Enums;
 
 namespace SharpLink
 {
