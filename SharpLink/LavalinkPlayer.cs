@@ -14,13 +14,6 @@ namespace SharpLink
         private string sessionId = "";
         private LavalinkTrack currentTrack;
 
-        #region PUBLIC_EVENTS
-        public event Func<LavalinkTrack, long, Task> Update;
-        public event Func<LavalinkTrack, string, Task> End;
-        public event Func<LavalinkTrack, long, Task> Stuck;
-        public event Func<LavalinkTrack, string, Task> Exception;
-        #endregion
-
         #region PUBLIC_FIELDS
         public bool Playing { get; private set; }
         public long CurrentPosition { get; private set; }
@@ -155,15 +148,13 @@ namespace SharpLink
                 case Event.PlayerUpdate:
                     {
                         CurrentPosition = (long)eventData;
-                        Update?.Invoke(currentTrack, (long)eventData).GetAwaiter();
 
                         break;
                     }
 
                 case Event.TrackEnd:
                     {
-                        End?.Invoke(currentTrack, (string)eventData).GetAwaiter();
-
+                        currentTrack = null;
                         Playing = true;
 
                         break;
@@ -171,18 +162,14 @@ namespace SharpLink
 
                 case Event.TrackException:
                     {
-                        Exception?.Invoke(currentTrack, (string)eventData).GetAwaiter();
-
-                        Playing = true;
+                        Playing = false;
 
                         break;
                     }
 
                 case Event.TrackStuck:
                     {
-                        Stuck?.Invoke(currentTrack, (long)eventData).GetAwaiter();
-
-                        Playing = true;
+                        Playing = false;
 
                         break;
                     }

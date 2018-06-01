@@ -19,6 +19,13 @@ namespace SharpLink
         private int connectionWait = 3000;
         private CancellationTokenSource lavalinkCancellation;
 
+        #region PUBLIC_EVENTS
+        public event Func<LavalinkPlayer, LavalinkTrack, long, Task> PlayerUpdate;
+        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> PlayerEnd;
+        public event Func<LavalinkPlayer, LavalinkTrack, long, Task> PlayerStuck;
+        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> PlayerException;
+        #endregion
+
         /// <summary>
         /// Initiates a new Lavalink node connection
         /// </summary>
@@ -158,7 +165,11 @@ namespace SharpLink
 
                                 if (players.ContainsKey(guildId))
                                 {
-                                    players[guildId].FireEvent(Event.PlayerUpdate, message["state"]["position"]);
+                                    LavalinkPlayer player = players[guildId];
+                                    LavalinkTrack currentTrack = player.CurrentTrack;
+
+                                    player.FireEvent(Event.PlayerUpdate, message["state"]["position"]);
+                                    PlayerUpdate?.Invoke(player, currentTrack, (long)message["state"]["position"]).GetAwaiter();
                                 }
 
                                 break;
@@ -170,13 +181,17 @@ namespace SharpLink
 
                                 if (players.ContainsKey(guildId))
                                 {
+                                    LavalinkPlayer player = players[guildId];
+                                    LavalinkTrack currentTrack = player.CurrentTrack;
+
                                     switch ((string)message["type"])
                                     {
                                         case "TrackEndEvent":
                                             {
                                                 Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_END_EVENT)"));
-
-                                                players[guildId].FireEvent(Event.TrackEnd, message["reason"]);
+                                                
+                                                player.FireEvent(Event.TrackEnd, message["reason"]);
+                                                PlayerEnd?.Invoke(player, currentTrack, (string)message["reason"]).GetAwaiter();
 
                                                 break;
                                             }
@@ -185,7 +200,8 @@ namespace SharpLink
                                             {
                                                 Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_EXCEPTION_EVENT)"));
 
-                                                players[guildId].FireEvent(Event.TrackException, message["error"]);
+                                                player.FireEvent(Event.TrackException, message["error"]);
+                                                PlayerException?.Invoke(player, currentTrack, (string)message["error"]).GetAwaiter();
 
                                                 break;
                                             }
@@ -194,7 +210,8 @@ namespace SharpLink
                                             {
                                                 Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_STUCK_EVENT)"));
 
-                                                players[guildId].FireEvent(Event.TrackStuck, message["thresholdMs"]);
+                                                player.FireEvent(Event.TrackStuck, message["thresholdMs"]);
+                                                PlayerStuck?.Invoke(player, currentTrack, (long)message["thresholdMs"]).GetAwaiter();
 
                                                 break;
                                             }
