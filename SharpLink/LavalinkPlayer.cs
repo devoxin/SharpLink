@@ -1,4 +1,9 @@
-﻿using SharpLink.Enums;
+﻿using Discord;
+using Discord.WebSocket;
+using Newtonsoft.Json.Linq;
+using SharpLink.Enums;
+using System;
+using System.Threading.Tasks;
 
 namespace SharpLink
 {
@@ -170,13 +175,6 @@ namespace SharpLink
 
                         break;
                     }
-
-                default:
-                    {
-                        Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", $"Warning: Unknown Event ({eventType.ToString()})"));
-
-                        break;
-                    }
             }
         }
 
@@ -222,13 +220,6 @@ namespace SharpLink
                         data.Add("guildId", guildId.ToString());
 
                         await manager.GetWebSocket().SendAsync(data.ToString());
-
-                        break;
-                    }
-
-                default:
-                    {
-                        Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", $"Warning: Unknown SessionChange ({change.ToString()})"));
 
                         break;
                     }

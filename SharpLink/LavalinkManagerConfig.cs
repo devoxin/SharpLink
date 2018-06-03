@@ -1,4 +1,6 @@
-﻿namespace SharpLink
+﻿using Discord;
+
+namespace SharpLink
 {
     public class LavalinkManagerConfig
     {
@@ -9,5 +11,6 @@
         public ushort RESTPort = 2333;
         public string Authorization = "youshallnotpass";
         public int TotalShards = 1;
+        public LogSeverity LogSeverity = LogSeverity.Info;
     }
 }

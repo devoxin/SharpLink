@@ -35,10 +35,10 @@ namespace SharpLink
             webSocket.Options.SetRequestHeader("Num-Shards", config.TotalShards.ToString());
             webSocket.Options.SetRequestHeader("User-Id", manager.GetDiscordClient().CurrentUser.Id.ToString());
 
-            Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Connecting to Lavalink node"));
+            manager.logger.Log($"Connecting to Lavalink node at {GetHostUri()}", LogSeverity.Info);
             await webSocket.ConnectAsync(hostUri, CancellationToken.None);
             Connected = true;
-            Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Connected to Lavalink node"));
+            manager.logger.Log($"Connecting to Lavalink node", LogSeverity.Info);
 
             while (webSocket.State == WebSocketState.Open)
             {
@@ -109,6 +109,11 @@ namespace SharpLink
         internal async Task Disconnect()
         {
             await DisconnectWebSocketAsync();
+        }
+
+        internal string GetHostUri()
+        {
+            return hostUri.AbsoluteUri;
         }
     }
 }

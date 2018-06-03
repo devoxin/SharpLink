@@ -1,4 +1,12 @@
-﻿using SharpLink.Enums;
+﻿using Discord;
+using Discord.WebSocket;
+using Newtonsoft.Json.Linq;
+using SharpLink.Enums;
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SharpLink
 {
@@ -10,12 +18,15 @@ namespace SharpLink
         private Dictionary<ulong, LavalinkPlayer> players = new Dictionary<ulong, LavalinkPlayer>();
         private int connectionWait = 3000;
         private CancellationTokenSource lavalinkCancellation;
+        private HttpClient client = new HttpClient();
+        internal Logger logger;
 
         #region PUBLIC_EVENTS
         public event Func<LavalinkPlayer, LavalinkTrack, long, Task> PlayerUpdate;
         public event Func<LavalinkPlayer, LavalinkTrack, string, Task> PlayerEnd;
         public event Func<LavalinkPlayer, LavalinkTrack, long, Task> PlayerStuck;
         public event Func<LavalinkPlayer, LavalinkTrack, string, Task> PlayerException;
+        public event Func<LogMessage, Task> Log;
         #endregion
 
         /// <summary>
@@ -28,10 +39,14 @@ namespace SharpLink
             this.config = config ?? new LavalinkManagerConfig();
             this.discordClient = discordClient;
 
+            // Setup the logger and rest client
+            logger = new Logger(this, "Lavalink");
+            client.DefaultRequestHeaders.Add("Authorization", config.Authorization);
+
             // Setup the socket client events
             discordClient.VoiceServerUpdated += async (voiceServer) =>
             {
-                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "VOICE_SERVER_UPDATE(" + voiceServer.Guild.Id + ")"));
+                logger.Log($"VOICE_SERVER_UPDATE({voiceServer.Guild.Id}, Updating Session)", LogSeverity.Debug);
 
                 await players[voiceServer.Guild.Id]?.UpdateSessionAsync(SessionChange.Connect, voiceServer);
             };
@@ -43,7 +58,7 @@ namespace SharpLink
                 {
                     if (oldVoiceState.VoiceChannel == null && newVoiceState.VoiceChannel != null)
                     {
-                        Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "VOICE_STATE_UPDATE(" + newVoiceState.VoiceChannel.Guild.Id + ", Connected)"));
+                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Connected)", LogSeverity.Debug);
 
                         // Connected
                         LavalinkPlayer player = players[newVoiceState.VoiceChannel.Guild.Id];
@@ -51,7 +66,7 @@ namespace SharpLink
                     }
                     else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
                     {
-                        Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "VOICE_STATE_UPDATE(" + oldVoiceState.VoiceChannel.Guild.Id + ", Disconnected)"));
+                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
 
                         // Disconnected
                         LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
@@ -99,6 +114,16 @@ namespace SharpLink
             return webSocket;
         }
 
+        internal void InvokeLog(LogMessage message)
+        {
+            Log?.Invoke(message).GetAwaiter();
+        }
+
+        internal LavalinkManagerConfig GetConfig()
+        {
+            return config;
+        }
+
         private void ConnectWebSocket()
         {
             // Continuously attempt connections to Lavalink
@@ -113,16 +138,16 @@ namespace SharpLink
                     {
                         await webSocket.Connect();
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         connectionWait = connectionWait + 3000;
-                        Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Failed to connect to Lavalink node. Waiting " + connectionWait/1000 + " seconds", ex));
+                        logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}. Waiting {connectionWait / 1000} before connecting", LogSeverity.Info);
                     }
 
                     if (!webSocket.IsConnected())
                     {
                         connectionWait = connectionWait + 3000;
-                        Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Failed to connect to Lavalink node. Waiting " + connectionWait / 1000 + " seconds"));
+                        logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}. Waiting {connectionWait / 1000} before connecting", LogSeverity.Info);
                     }
 
                     await Task.Delay(connectionWait);
@@ -153,7 +178,7 @@ namespace SharpLink
                     {
                         case "playerUpdate":
                             {
-                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (PLAYER_UPDATE)"));
+                                logger.Log("Received Dispatch (PLAYER_UPDATE)", LogSeverity.Debug);
 
                                 ulong guildId = (ulong)message["guildId"];
 
@@ -182,7 +207,7 @@ namespace SharpLink
                                     {
                                         case "TrackEndEvent":
                                             {
-                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_END_EVENT)"));
+                                                logger.Log("Received Dispatch (TRACK_END_EVENT)", LogSeverity.Debug);
                                                 
                                                 player.FireEvent(Event.TrackEnd, message["reason"]);
                                                 PlayerEnd?.Invoke(player, currentTrack, (string)message["reason"]).GetAwaiter();
@@ -192,7 +217,7 @@ namespace SharpLink
 
                                         case "TrackExceptionEvent":
                                             {
-                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_EXCEPTION_EVENT)"));
+                                                logger.Log("Received Dispatch (TRACK_EXCEPTION_EVENT)", LogSeverity.Debug);
 
                                                 player.FireEvent(Event.TrackException, message["error"]);
                                                 PlayerException?.Invoke(player, currentTrack, (string)message["error"]).GetAwaiter();
@@ -202,7 +227,7 @@ namespace SharpLink
 
                                         case "TrackStuckEvent":
                                             {
-                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Dispatch (TRACK_STUCK_EVENT)"));
+                                                logger.Log("Received Dispatch (TRACK_STUCK_EVENT)", LogSeverity.Debug);
 
                                                 player.FireEvent(Event.TrackStuck, message["thresholdMs"]);
                                                 PlayerStuck?.Invoke(player, currentTrack, (long)message["thresholdMs"]).GetAwaiter();
@@ -212,7 +237,7 @@ namespace SharpLink
 
                                         default:
                                             {
-                                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", $"Warning: Unknown Event Type ({(string)message["type"]})"));
+                                                logger.Log($"Received Unknown Event Type {(string)message["type"]}", LogSeverity.Debug);
 
                                                 break;
                                             }
@@ -224,7 +249,7 @@ namespace SharpLink
 
                         default:
                             {
-                                Console.WriteLine(new LogMessage(LogSeverity.Debug, "Lavalink", "Received Unknown Dispatch (" + ((string)message["op"]).ToUpper() + ")"));
+                                logger.Log($"Received Uknown Dispatch ({(string)message["op"]})", LogSeverity.Debug);
 
                                 break;
                             }
@@ -311,11 +336,9 @@ namespace SharpLink
         /// <returns></returns>
         public async Task<LavalinkTrack> GetTrack(string identifier)
         {
-            // Sets up a new HttpClient and requests a track
-            HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.Add("Authorization", config.Authorization);
-
+            DateTime requestTime = DateTime.UtcNow;
             string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
+            logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
 
             return new LavalinkTrack(response);
         }
