@@ -72,7 +72,7 @@ namespace SharpLink
                 {
                     OnClosed?.Invoke(result.CloseStatus, result.CloseStatusDescription).GetAwaiter();
                     Connected = false;
-                    manager.logger.Log($"Disconnected from Lavalink node ({result.CloseStatus}, {result.CloseStatusDescription})", LogSeverity.Info);
+                    manager.logger.Log($"Disconnected from Lavalink node ({(int)result.CloseStatus}, {result.CloseStatusDescription})", LogSeverity.Info);
                 }
                 else
                 {
