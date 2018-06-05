@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace SharpLink
 {
+    // TODO: Add IDisposable
     public class LavalinkPlayer
     {
         private LavalinkManager manager;
@@ -41,8 +42,10 @@ namespace SharpLink
         public async Task DisconnectAsync()
         {
             await initialVoiceChannel.DisconnectAsync();
-            await StopAsync();
+            await UpdateSessionAsync(SessionChange.Disconnect, initialVoiceChannel.GuildId);
             manager.RemovePlayer(initialVoiceChannel.GuildId);
+
+            Playing = false;
         }
 
         /// <summary>
