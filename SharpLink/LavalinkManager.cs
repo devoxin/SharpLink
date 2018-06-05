@@ -137,17 +137,17 @@ namespace SharpLink
                     try
                     {
                         await webSocket.Connect();
-                    }
-                    catch (Exception)
+                    } catch(Exception ex)
                     {
-                        connectionWait = connectionWait + 3000;
-                        logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}. Waiting {connectionWait / 1000} before connecting", LogSeverity.Warning);
-                    }
-
-                    if (!webSocket.IsConnected())
+                        logger.Log($"Exception: ", LogSeverity.Debug, ex);
+                    } finally
                     {
-                        connectionWait = connectionWait + 3000;
-                        logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}. Waiting {connectionWait / 1000} before connecting", LogSeverity.Warning);
+                        if (!webSocket.IsConnected())
+                        {
+                            connectionWait = connectionWait + 3000;
+                            logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}", LogSeverity.Warning);
+                            logger.Log($"Waiting {connectionWait / 1000} seconds before reconnecting", LogSeverity.Warning);
+                        }
                     }
 
                     await Task.Delay(connectionWait);

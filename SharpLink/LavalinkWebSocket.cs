@@ -38,7 +38,7 @@ namespace SharpLink
             manager.logger.Log($"Connecting to Lavalink node at {GetHostUri()}", LogSeverity.Info);
             await webSocket.ConnectAsync(hostUri, CancellationToken.None);
             Connected = true;
-            manager.logger.Log($"Connecting to Lavalink node", LogSeverity.Info);
+            manager.logger.Log($"Connected to Lavalink node", LogSeverity.Info);
 
             while (webSocket.State == WebSocketState.Open)
             {
@@ -72,7 +72,7 @@ namespace SharpLink
                 {
                     OnClosed?.Invoke(result.CloseStatus, result.CloseStatusDescription).GetAwaiter();
                     Connected = false;
-                    Console.WriteLine(new LogMessage(LogSeverity.Info, "Lavalink", "Disconnected from Lavalink node"));
+                    manager.logger.Log($"Disconnected from Lavalink node ({result.CloseStatus}, {result.CloseStatusDescription})", LogSeverity.Info);
                 }
                 else
                 {
