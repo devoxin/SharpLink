@@ -122,6 +122,12 @@ namespace SharpLink
             return config;
         }
 
+        internal void RemovePlayer(ulong guildId)
+        {
+            if (players.ContainsKey(guildId))
+                players.Remove(guildId);
+        }
+
         private void ConnectWebSocket()
         {
             // Continuously attempt connections to Lavalink
@@ -258,6 +264,7 @@ namespace SharpLink
 
                 webSocket.OnClosed += (closeStatus, closeDescription) =>
                 {
+                    players.Clear();
                     ConnectWebSocket();
 
                     return Task.CompletedTask;

@@ -41,6 +41,8 @@ namespace SharpLink
         public async Task DisconnectAsync()
         {
             await initialVoiceChannel.DisconnectAsync();
+            await StopAsync();
+            manager.RemovePlayer(initialVoiceChannel.GuildId);
         }
 
         /// <summary>
