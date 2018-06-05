@@ -81,16 +81,14 @@ namespace SharpLink
                 }
             };
 
-            discordClient.Disconnected += (exception) =>
+            discordClient.Disconnected += async (exception) =>
             {
                 foreach(KeyValuePair<ulong, LavalinkPlayer> player in players)
                 {
-                    player.Value.DisconnectAsync().GetAwaiter();
+                    await player.Value.DisconnectAsync();
                 }
 
                 players.Clear();
-
-                return Task.CompletedTask;
             };
         }
 
