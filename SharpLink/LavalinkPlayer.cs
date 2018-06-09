@@ -86,7 +86,7 @@ namespace SharpLink
         /// <returns></returns>
         public async Task ResumeAsync()
         {
-            if (!Playing) throw new InvalidOperationException("The player is not currently paused");
+            if (Playing) throw new InvalidOperationException("The player is not currently paused");
 
             JObject data = new JObject();
             data.Add("op", "pause");
