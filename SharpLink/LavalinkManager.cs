@@ -214,7 +214,7 @@ namespace SharpLink
                                                 logger.Log("Received Dispatch (TRACK_END_EVENT)", LogSeverity.Debug);
                                                 
                                                 player.FireEvent(Event.TrackEnd, message["reason"]);
-                                                PlayerEnd?.Invoke(player, currentTrack, (string)message["reason"]).GetAwaiter();
+                                                TrackEnd?.Invoke(player, currentTrack, (string)message["reason"]).GetAwaiter();
 
                                                 break;
                                             }
@@ -224,7 +224,7 @@ namespace SharpLink
                                                 logger.Log("Received Dispatch (TRACK_EXCEPTION_EVENT)", LogSeverity.Debug);
 
                                                 player.FireEvent(Event.TrackException, message["error"]);
-                                                PlayerException?.Invoke(player, currentTrack, (string)message["error"]).GetAwaiter();
+                                                TrackException?.Invoke(player, currentTrack, (string)message["error"]).GetAwaiter();
 
                                                 break;
                                             }
@@ -234,7 +234,7 @@ namespace SharpLink
                                                 logger.Log("Received Dispatch (TRACK_STUCK_EVENT)", LogSeverity.Debug);
 
                                                 player.FireEvent(Event.TrackStuck, message["thresholdMs"]);
-                                                PlayerStuck?.Invoke(player, currentTrack, (long)message["thresholdMs"]).GetAwaiter();
+                                                TrackStuck?.Invoke(player, currentTrack, (long)message["thresholdMs"]).GetAwaiter();
 
                                                 break;
                                             }
