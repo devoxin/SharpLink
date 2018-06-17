@@ -190,7 +190,7 @@ namespace SharpLink
                         await webSocket.Connect();
                     } catch(Exception ex)
                     {
-                        logger.Log($"Exception: ", LogSeverity.Debug, ex);
+                        logger.Log($"Exception", LogSeverity.Debug, ex);
                     } finally
                     {
                         if (!webSocket.IsConnected())
