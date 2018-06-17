@@ -14,7 +14,8 @@ namespace SharpLink
     {
         private LavalinkWebSocket webSocket;
         private LavalinkManagerConfig config;
-        private DiscordSocketClient discordClient;
+        private BaseSocketClient baseDiscordClient;
+        private SemaphoreSlim playerLock = new SemaphoreSlim(1, 1);
         private Dictionary<ulong, LavalinkPlayer> players = new Dictionary<ulong, LavalinkPlayer>();
         private int connectionWait = 3000;
         private CancellationTokenSource lavalinkCancellation;
@@ -37,24 +38,37 @@ namespace SharpLink
         public LavalinkManager(DiscordSocketClient discordClient, LavalinkManagerConfig config = null)
         {
             this.config = config ?? new LavalinkManagerConfig();
-            this.discordClient = discordClient;
+            baseDiscordClient = discordClient;
 
+            SetupManager();
+        }
+
+        public LavalinkManager(DiscordShardedClient discordShardedClient, LavalinkManagerConfig config = null)
+        {
+            this.config = config ?? new LavalinkManagerConfig();
+            baseDiscordClient = discordShardedClient;
+
+            SetupManager();
+        }
+
+        private void SetupManager()
+        {
             // Setup the logger and rest client
             logger = new Logger(this, "Lavalink");
             client.DefaultRequestHeaders.Add("Authorization", config.Authorization);
 
             // Setup the socket client events
-            discordClient.VoiceServerUpdated += async (voiceServer) =>
+            baseDiscordClient.VoiceServerUpdated += async (voiceServer) =>
             {
                 logger.Log($"VOICE_SERVER_UPDATE({voiceServer.Guild.Id}, Updating Session)", LogSeverity.Debug);
 
                 await players[voiceServer.Guild.Id]?.UpdateSessionAsync(SessionChange.Connect, voiceServer);
             };
 
-            discordClient.UserVoiceStateUpdated += async (user, oldVoiceState, newVoiceState) =>
+            baseDiscordClient.UserVoiceStateUpdated += async (user, oldVoiceState, newVoiceState) =>
             {
                 // We only need voice state updates for the current user
-                if (user.Id == discordClient.CurrentUser.Id)
+                if (user.Id == baseDiscordClient.CurrentUser.Id)
                 {
                     if (oldVoiceState.VoiceChannel == null && newVoiceState.VoiceChannel != null)
                     {
@@ -81,15 +95,44 @@ namespace SharpLink
                 }
             };
 
-            discordClient.Disconnected += async (exception) =>
+            if (baseDiscordClient is DiscordShardedClient)
             {
-                foreach(KeyValuePair<ulong, LavalinkPlayer> player in players)
-                {
-                    await player.Value.DisconnectAsync();
-                }
+                DiscordShardedClient shardedClient = baseDiscordClient as DiscordShardedClient;
 
-                players.Clear();
-            };
+                shardedClient.ShardDisconnected += async (exception, client) =>
+                {
+                    await playerLock.WaitAsync();
+
+                    // Disconnect all the players associated with this shard
+                    foreach(SocketGuild guild in client.Guilds)
+                    {
+                        if (players.ContainsKey(guild.Id))
+                        {
+                            await players[guild.Id].DisconnectAsync();
+                            players.Remove(guild.Id);
+                        }
+                    }
+
+                    playerLock.Release();
+                };
+            } else if (baseDiscordClient is DiscordSocketClient)
+            {
+                DiscordSocketClient client = baseDiscordClient as DiscordSocketClient;
+
+                client.Disconnected += async (exception) =>
+                {
+                    await playerLock.WaitAsync();
+
+                    // Since this is a single shard we'll disconnect all players
+                    foreach (KeyValuePair<ulong, LavalinkPlayer> player in players)
+                    {
+                        await player.Value.DisconnectAsync();
+                    }
+
+                    players.Clear();
+                    playerLock.Release();
+                };
+            }
         }
 
         internal async Task PlayTrackAsync(string trackId, ulong guildId)
@@ -102,9 +145,9 @@ namespace SharpLink
             await webSocket.SendAsync(data.ToString());
         }
 
-        internal DiscordSocketClient GetDiscordClient()
+        internal BaseSocketClient GetDiscordClient()
         {
-            return discordClient;
+            return baseDiscordClient;
         }
 
         internal LavalinkWebSocket GetWebSocket()
@@ -122,10 +165,14 @@ namespace SharpLink
             return config;
         }
 
-        internal void RemovePlayer(ulong guildId)
+        internal async Task RemovePlayerAsync(ulong guildId)
         {
+            await playerLock.WaitAsync();
+
             if (players.ContainsKey(guildId))
                 players.Remove(guildId);
+
+            playerLock.Release();
         }
 
         private void ConnectWebSocket()
@@ -167,7 +214,7 @@ namespace SharpLink
         {
             return Task.Run(() =>
             {
-                if (discordClient.CurrentUser == null)
+                if (baseDiscordClient.CurrentUser == null)
                     throw new InvalidOperationException("Can't connect when CurrentUser is null. Please wait until Discord connects");
 
                 lavalinkCancellation = new CancellationTokenSource();
@@ -262,12 +309,14 @@ namespace SharpLink
                     return Task.CompletedTask;
                 };
 
-                webSocket.OnClosed += (closeStatus, closeDescription) =>
+                webSocket.OnClosed += async (closeStatus, closeDescription) =>
                 {
+                    await playerLock.WaitAsync();
+
                     players.Clear();
                     ConnectWebSocket();
 
-                    return Task.CompletedTask;
+                    playerLock.Release();
                 };
 
                 ConnectWebSocket();

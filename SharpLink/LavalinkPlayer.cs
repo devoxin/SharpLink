@@ -43,7 +43,7 @@ namespace SharpLink
         {
             await initialVoiceChannel.DisconnectAsync();
             await UpdateSessionAsync(SessionChange.Disconnect, initialVoiceChannel.GuildId);
-            manager.RemovePlayer(initialVoiceChannel.GuildId);
+            await manager.RemovePlayerAsync(initialVoiceChannel.GuildId);
 
             Playing = false;
         }
