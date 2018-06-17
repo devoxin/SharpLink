@@ -23,9 +23,9 @@ namespace SharpLink
 
         #region PUBLIC_EVENTS
         public event Func<LavalinkPlayer, LavalinkTrack, long, Task> PlayerUpdate;
-        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> PlayerEnd;
-        public event Func<LavalinkPlayer, LavalinkTrack, long, Task> PlayerStuck;
-        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> PlayerException;
+        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> TrackEnd;
+        public event Func<LavalinkPlayer, LavalinkTrack, long, Task> TrackStuck;
+        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> TrackException;
         public event Func<LogMessage, Task> Log;
         #endregion
 
