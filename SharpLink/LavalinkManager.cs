@@ -2,6 +2,7 @@
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
 using SharpLink.Enums;
+using SharpLink.Events;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -22,12 +23,12 @@ namespace SharpLink
         private HttpClient client = new HttpClient();
         internal Logger logger;
 
-        #region PUBLIC_EVENTS
-        public event Func<LavalinkPlayer, LavalinkTrack, long, Task> PlayerUpdate;
-        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> TrackEnd;
-        public event Func<LavalinkPlayer, LavalinkTrack, long, Task> TrackStuck;
-        public event Func<LavalinkPlayer, LavalinkTrack, string, Task> TrackException;
-        public event Func<LogMessage, Task> Log;
+        #region PUBLIC_EVENTS 
+        public event AsyncEvent<LavalinkPlayer, LavalinkTrack, long> PlayerUpdate;
+        public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> TrackEnd;
+        public event AsyncEvent<LavalinkPlayer, LavalinkTrack, long> TrackStuck;
+        public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> TrackException;
+        public event AsyncEvent<LogMessage> Log;
         #endregion
 
         /// <summary>
@@ -157,7 +158,7 @@ namespace SharpLink
 
         internal void InvokeLog(LogMessage message)
         {
-            Log?.Invoke(message).GetAwaiter();
+            Log?.InvokeAsync(message);
         }
 
         internal LavalinkManagerConfig GetConfig()
@@ -239,7 +240,7 @@ namespace SharpLink
                                     LavalinkTrack currentTrack = player.CurrentTrack;
 
                                     player.FireEvent(Event.PlayerUpdate, message["state"]["position"]);
-                                    PlayerUpdate?.Invoke(player, currentTrack, (long)message["state"]["position"]).GetAwaiter();
+                                    PlayerUpdate?.InvokeAsync(player, currentTrack, (long)message["state"]["position"]);
                                 }
 
                                 break;
@@ -261,7 +262,7 @@ namespace SharpLink
                                                 logger.Log("Received Dispatch (TRACK_END_EVENT)", LogSeverity.Debug);
                                                 
                                                 player.FireEvent(Event.TrackEnd, message["reason"]);
-                                                TrackEnd?.Invoke(player, currentTrack, (string)message["reason"]).GetAwaiter();
+                                                TrackEnd?.InvokeAsync(player, currentTrack, (string)message["reason"]);
 
                                                 break;
                                             }
@@ -271,7 +272,7 @@ namespace SharpLink
                                                 logger.Log("Received Dispatch (TRACK_EXCEPTION_EVENT)", LogSeverity.Debug);
 
                                                 player.FireEvent(Event.TrackException, message["error"]);
-                                                TrackException?.Invoke(player, currentTrack, (string)message["error"]).GetAwaiter();
+                                                TrackException?.InvokeAsync(player, currentTrack, (string)message["error"]);
 
                                                 break;
                                             }
@@ -281,7 +282,7 @@ namespace SharpLink
                                                 logger.Log("Received Dispatch (TRACK_STUCK_EVENT)", LogSeverity.Debug);
 
                                                 player.FireEvent(Event.TrackStuck, message["thresholdMs"]);
-                                                TrackStuck?.Invoke(player, currentTrack, (long)message["thresholdMs"]).GetAwaiter();
+                                                TrackStuck?.InvokeAsync(player, currentTrack, (long)message["thresholdMs"]);
 
                                                 break;
                                             }

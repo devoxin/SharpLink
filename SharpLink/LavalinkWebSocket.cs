@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Newtonsoft.Json.Linq;
+using SharpLink.Events;
 using System;
 using System.Net.WebSockets;
 using System.Text;
@@ -17,8 +18,8 @@ namespace SharpLink
         private LavalinkManagerConfig config;
 
         #region EVENTS
-        public event Func<JObject, Task> OnReceive;
-        public event Func<WebSocketCloseStatus?, string, Task> OnClosed;
+        public event AsyncEvent<JObject> OnReceive;
+        public event AsyncEvent<WebSocketCloseStatus?, string> OnClosed;
         #endregion
 
         internal LavalinkWebSocket(LavalinkManager manager, LavalinkManagerConfig config)
@@ -45,7 +46,7 @@ namespace SharpLink
                 string jsonString = await ReceiveAsync(webSocket);
                 JObject json = JObject.Parse(jsonString);
 
-                OnReceive?.Invoke(json).ConfigureAwait(false);
+                OnReceive?.InvokeAsync(json);
             }
         }
 
@@ -70,7 +71,7 @@ namespace SharpLink
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    OnClosed?.Invoke(result.CloseStatus, result.CloseStatusDescription).GetAwaiter();
+                    OnClosed?.InvokeAsync(result.CloseStatus, result.CloseStatusDescription);
                     Connected = false;
                     manager.logger.Log($"Disconnected from Lavalink node ({(int)result.CloseStatus}, {result.CloseStatusDescription})", LogSeverity.Info);
                 }
