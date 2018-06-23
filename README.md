@@ -45,6 +45,6 @@ if (player == null)
 }
 
 // Now that we have a player we can go ahead and grab a track and play it
-LavalinkTrack track = await lavalinkManager.GetTrack("QUERY");
+LavalinkTrack track = await lavalinkManager.GetTrackAsync("IDENTIFIER");
 await player.PlayAsync(track);
 ```
