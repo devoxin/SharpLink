@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
 using SharpLink.Enums;
 using SharpLink.Events;
+using SharpLink.Stats;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -29,6 +30,7 @@ namespace SharpLink
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, long> TrackStuck;
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> TrackException;
         public event AsyncEvent<LogMessage> Log;
+        public event AsyncEvent<LavalinkStats> Stats;
         #endregion
 
         /// <summary>
@@ -295,6 +297,13 @@ namespace SharpLink
                                             }
                                     }
                                 }
+
+                                break;
+                            }
+
+                        case "stats":
+                            {
+                                Stats?.InvokeAsync(new LavalinkStats(message));
 
                                 break;
                             }
