@@ -15,11 +15,8 @@ namespace SharpLink
         public readonly string Title;
         public readonly string Url;
 
-        internal LavalinkTrack(string trackJson)
+        internal LavalinkTrack(JToken jsonTrack)
         {
-            JArray json = JArray.Parse(trackJson);
-            JToken jsonTrack = json.First;
-
             TrackId = (string)jsonTrack["track"];
             Identifier = (string)jsonTrack["info"]["identifier"];
             IsSeekable = (bool)jsonTrack["info"]["isSeekable"];

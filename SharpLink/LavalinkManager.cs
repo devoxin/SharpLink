@@ -389,13 +389,41 @@ namespace SharpLink
         /// </summary>
         /// <param name="identifier"></param>
         /// <returns></returns>
-        public async Task<LavalinkTrack> GetTrack(string identifier)
+        public async Task<LavalinkTrack> GetTrackAsync(string identifier)
         {
             DateTime requestTime = DateTime.UtcNow;
             string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
             logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
 
-            return new LavalinkTrack(response);
+            JArray json = JArray.Parse(response);
+
+            if (json.Count == 0)
+                return null;
+
+            JToken jsonTrack = json.First;
+            return new LavalinkTrack(jsonTrack);
+        }
+
+        /// <summary>
+        /// Gets multiple track from the Lavalink REST API
+        /// </summary>
+        /// <param name="identifier"></param>
+        /// <returns></returns>
+        public async Task<IReadOnlyCollection<LavalinkTrack>> GetTracksAsync(string identifier)
+        {
+            DateTime requestTime = DateTime.UtcNow;
+            string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
+            logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
+
+            JArray json = JArray.Parse(response);
+
+            List<LavalinkTrack> tracks = new List<LavalinkTrack>();
+            foreach(JToken jsonTrack in json)
+            {
+                tracks.Add(new LavalinkTrack(jsonTrack));
+            }
+
+            return tracks;
         }
     }
 }
