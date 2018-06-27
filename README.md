@@ -14,7 +14,7 @@ DiscordSocketClient client = new DiscordSocketClient();
 LavalinkManager lavalinkManager = new LavalinkManager(client, new LavalinkManagerConfig()
 {
     // You do not have to pass a config. Default config is as provided at https://github.com/Frederikam/Lavalink/blob/master/LavalinkServer/application.yml.example
-    RESTHost = "localhost";
+    RESTHost = "localhost",
     RESTPort = 2333,
     WebSocketHost = "localhost",
     WebSocketPort = 80,
