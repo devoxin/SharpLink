@@ -393,6 +393,22 @@ namespace SharpLink
             await players[guildId].DisconnectAsync();
         }
 
+        private async Task<JArray> RequestLoadTracksAsync(string identifier)
+        {
+            DateTime requestTime = DateTime.UtcNow;
+            string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
+            logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
+
+            // Lavalink version 2 and 3 support
+            JToken json = JToken.Parse(response);
+            if (json is JArray)
+                return json as JArray;
+            else if (json is JObject && json["tracks"] != null)
+                return json["tracks"] as JArray;
+            else
+                return null;
+        }
+
         /// <summary>
         /// Gets a single track from the Lavalink REST API
         /// </summary>
@@ -400,11 +416,9 @@ namespace SharpLink
         /// <returns></returns>
         public async Task<LavalinkTrack> GetTrackAsync(string identifier)
         {
-            DateTime requestTime = DateTime.UtcNow;
-            string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
-            logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
-
-            JArray json = JArray.Parse(response);
+            JArray json = await RequestLoadTracksAsync(identifier);
+            if (json == null)
+                return null;
 
             if (json.Count == 0)
                 return null;
@@ -420,11 +434,9 @@ namespace SharpLink
         /// <returns></returns>
         public async Task<IReadOnlyCollection<LavalinkTrack>> GetTracksAsync(string identifier)
         {
-            DateTime requestTime = DateTime.UtcNow;
-            string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
-            logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
-
-            JArray json = JArray.Parse(response);
+            JArray json = await RequestLoadTracksAsync(identifier);
+            if (json == null)
+                return null;
 
             List<LavalinkTrack> tracks = new List<LavalinkTrack>();
             foreach(JToken jsonTrack in json)
