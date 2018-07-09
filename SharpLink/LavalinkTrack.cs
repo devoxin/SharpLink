@@ -36,6 +36,7 @@ namespace SharpLink
             Author = author;
             Length = (IsStream ? TimeSpan.MaxValue : TimeSpan.FromMilliseconds(length));
             Identifier = identifer;
+            IsStream = isStream;
             Url = url;
             Position = position;
         }
