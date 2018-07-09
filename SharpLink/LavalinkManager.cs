@@ -6,7 +6,9 @@ using SharpLink.Events;
 using SharpLink.Stats;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -425,6 +427,98 @@ namespace SharpLink
 
             JToken jsonTrack = json.First;
             return new LavalinkTrack(jsonTrack);
+        }
+
+        /// <summary>
+        /// Gets a track from a track id
+        /// </summary>
+        /// <param name="trackId"></param>
+        /// <remarks>Some properties may be missing from the track</remarks>
+        /// <returns></returns>
+        public LavalinkTrack GetTrackFromId(string trackId)
+        {
+            #region BYTE_REF
+            /*
+                Thank you sedmelluq for this info
+
+                all integers are big-endian.
+                text is 2-byte integer for length of bytes + utf8 bytes
+
+                4 bytes size + flags (2 highest order bits are flags, the rest is size)
+                1 byte of message version
+                title (text)
+                author (text)
+                length (8-byte integer)
+                identifier (text)
+                1 byte boolean of whether it is a stream
+                1 byte boolean of whether url field is present
+                url (text)
+                source name (text)
+                if source is http or local, then: container type (text)
+                position in ms (8-byte integer). always 0 for tracks provided by lavalink
+             */
+            #endregion
+
+            try
+            {
+                byte[] trackBytes = Convert.FromBase64String(trackId);
+                int offset = 5;
+
+                // Skipping size, flags, and message version at the moment
+
+                ushort titleSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                string title = Encoding.UTF8.GetString(trackBytes, offset + 2, titleSize);
+                offset += 2 + titleSize;
+
+                ushort authorSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                string author = Encoding.UTF8.GetString(trackBytes, offset + 2, authorSize);
+                offset += 2 + authorSize;
+
+                ulong length = Util.SwapEndianess(BitConverter.ToUInt64(trackBytes, offset));
+                offset += 8;
+
+                ushort identifierSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                string identifier = Encoding.UTF8.GetString(trackBytes, offset + 2, identifierSize);
+                offset += 2 + identifierSize;
+
+                bool stream = BitConverter.ToBoolean(trackBytes, offset);
+                offset += 1;
+
+                bool urlPresent = BitConverter.ToBoolean(trackBytes, offset);
+                offset += 1;
+
+                string url = null;
+                if (urlPresent)
+                {
+                    ushort urlSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                    url = Encoding.UTF8.GetString(trackBytes, offset + 2, urlSize);
+                    offset += 2 + urlSize;
+                }
+
+                // Source name is not used in SharpLink outside of this method
+                ushort sourceNameSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                string sourceName = Encoding.UTF8.GetString(trackBytes, offset + 2, sourceNameSize);
+                offset += 2 + sourceNameSize;
+
+                if (sourceName == "local" || sourceName == "http")
+                {
+                    // This is ignored and not used but instead we skip the bytes
+                    ushort containerTypeSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                    offset += 2 + containerTypeSize;
+                }
+
+                ulong position = Util.SwapEndianess(BitConverter.ToUInt64(trackBytes, offset));
+
+                return new LavalinkTrack(trackId, title, author, length, identifier, stream, url, position);
+            } catch(ArgumentOutOfRangeException ex)
+            {
+                // This exception is thrown when the bytes are parsed invalidly and don't have the proper format
+                throw new ArgumentException("TrackId failed to parse", ex);
+            } catch (Exception ex)
+            {
+                // Any other error is likely an invalid track id
+                throw new ArgumentException("TrackId is not valid", ex);
+            }
         }
 
         /// <summary>
