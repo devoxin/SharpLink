@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>1.0.0-beta-0002</Version>
+    <Version>1.0.0-beta-0003</Version>
     <Authors>Luke, NovusTheory</Authors>
     <Company />
     <PackageLicenseUrl>https://github.com/Devoxin/SharpLink/blob/master/LICENSE</PackageLicenseUrl>
@@ -10,14 +10,8 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>A lavalink wrapper for Discord.Net</Description>
     <PackageTags>Discord, discord, discordapp, Discord.Net, discord.net, Lavalink, lavalink</PackageTags>
-    <PackageReleaseNotes>- Fixed bug in ResumeAsync
-- Events are better and use a custom AsyncEvent delegate
-- Logging improvements
-- Fixed bug with players not being cleaned up properly
-- Event name changes (PlayerEnd =&gt; TrackEnd, PlayerException =&gt; TrackException, PlayerStuck =&gt; TrackStuck)
-- DiscordShardedClient support
-- Renamed GetTrack to GetTrackAsync
-- Added GetTracksAsync</PackageReleaseNotes>
+    <PackageReleaseNotes>- Support for stats op
+- New method LavalinkManager#GetTrackFromId() to get a LavalinkTrack from the Base64 encoded track ids</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/Devoxin/SharpLink</PackageProjectUrl>
   </PropertyGroup>
 
