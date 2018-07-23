@@ -199,7 +199,7 @@ namespace SharpLink
                     var eventData = new JObject
                     {
                         {"token", voiceServer.Token},
-                        {"guild_id", voiceServer.Guild.Id.ToString()},
+                        {"guild_id", $"{voiceServer.Guild.Id}"},
                         {"endpoint", voiceServer.Endpoint}
                     };
 
