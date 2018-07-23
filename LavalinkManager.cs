@@ -1,16 +1,15 @@
-﻿using Discord;
+﻿using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
 using SharpLink.Enums;
 using SharpLink.Events;
 using SharpLink.Stats;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace SharpLink
 {
@@ -27,12 +26,14 @@ namespace SharpLink
         internal Logger logger;
 
         #region PUBLIC_EVENTS 
+
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, long> PlayerUpdate;
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> TrackEnd;
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, long> TrackStuck;
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> TrackException;
         public event AsyncEvent<LogMessage> Log;
         public event AsyncEvent<LavalinkStats> Stats;
+
         #endregion
 
         /// <summary>
@@ -40,7 +41,7 @@ namespace SharpLink
         /// </summary>
         /// <param name="discordClient"></param>
         /// <param name="config"></param>
-        public LavalinkManager(DiscordSocketClient discordClient, LavalinkManagerConfig config = null)
+        public LavalinkManager(BaseSocketClient discordClient, LavalinkManagerConfig config = null)
         {
             this.config = config ?? new LavalinkManagerConfig();
             baseDiscordClient = discordClient;
@@ -58,96 +59,82 @@ namespace SharpLink
 
         private void SetupManager()
         {
-            // Setup the logger and rest client
             logger = new Logger(this, "Lavalink");
             client.DefaultRequestHeaders.Add("Authorization", config.Authorization);
 
-            // Setup the socket client events
-            baseDiscordClient.VoiceServerUpdated += async (voiceServer) =>
+            baseDiscordClient.VoiceServerUpdated += async voiceServer =>
             {
                 logger.Log($"VOICE_SERVER_UPDATE({voiceServer.Guild.Id}, Updating Session)", LogSeverity.Debug);
-
                 await players[voiceServer.Guild.Id]?.UpdateSessionAsync(SessionChange.Connect, voiceServer);
             };
 
             baseDiscordClient.UserVoiceStateUpdated += async (user, oldVoiceState, newVoiceState) =>
             {
-                // We only need voice state updates for the current user
                 if (user.Id == baseDiscordClient.CurrentUser.Id)
                 {
                     if (oldVoiceState.VoiceChannel == null && newVoiceState.VoiceChannel != null)
                     {
-                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Connected)", LogSeverity.Debug);
+                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Connected)",
+                            LogSeverity.Debug);
 
                         // Connected
-                        LavalinkPlayer player = players[newVoiceState.VoiceChannel.Guild.Id];
+                        var player = players[newVoiceState.VoiceChannel.Guild.Id];
                         player?.SetSessionId(newVoiceState.VoiceSessionId);
                     }
                     else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
                     {
-                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
+                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Disconnected)",
+                            LogSeverity.Debug);
 
                         // Disconnected
-                        LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
-
+                        var player = players[oldVoiceState.VoiceChannel.Guild.Id];
                         if (player != null)
                         {
-                            player.SetSessionId("");
-                            await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
+                            player.SetSessionId(string.Empty);
+                            await player.UpdateSessionAsync(SessionChange.Disconnect,
+                                oldVoiceState.VoiceChannel.Guild.Id);
                             players.Remove(oldVoiceState.VoiceChannel.Guild.Id);
                         }
                     }
                 }
             };
 
-            if (baseDiscordClient is DiscordShardedClient)
+            switch (baseDiscordClient)
             {
-                DiscordShardedClient shardedClient = baseDiscordClient as DiscordShardedClient;
-
-                shardedClient.ShardDisconnected += async (exception, client) =>
-                {
-                    await playerLock.WaitAsync();
-
-                    // Disconnect all the players associated with this shard
-                    foreach(SocketGuild guild in client.Guilds)
+                case DiscordShardedClient shardedClient:
+                    shardedClient.ShardDisconnected += async (exception, socketClient) =>
                     {
-                        if (players.ContainsKey(guild.Id))
+                        await playerLock.WaitAsync();
+                        foreach (var guild in socketClient.Guilds)
                         {
+                            if (!players.ContainsKey(guild.Id)) continue;
                             await players[guild.Id].DisconnectAsync();
                             players.Remove(guild.Id);
                         }
-                    }
 
-                    playerLock.Release();
-                };
-            } else if (baseDiscordClient is DiscordSocketClient)
-            {
-                DiscordSocketClient client = baseDiscordClient as DiscordSocketClient;
-
-                client.Disconnected += async (exception) =>
-                {
-                    await playerLock.WaitAsync();
-
-                    // Since this is a single shard we'll disconnect all players
-                    foreach (KeyValuePair<ulong, LavalinkPlayer> player in players)
+                        playerLock.Release();
+                    };
+                    break;
+                case DiscordSocketClient socketClient:
+                    socketClient.Disconnected += async exception =>
                     {
-                        await player.Value.DisconnectAsync();
-                    }
+                        await playerLock.WaitAsync();
+                        foreach (var player in players)
+                        {
+                            await player.Value.DisconnectAsync();
+                        }
 
-                    players.Clear();
-                    playerLock.Release();
-                };
+                        players.Clear();
+                        playerLock.Release();
+                    };
+                    break;
             }
         }
 
         internal async Task PlayTrackAsync(string trackId, ulong guildId)
         {
-            JObject data = new JObject();
-            data.Add("op", "play");
-            data.Add("guildId", guildId.ToString());
-            data.Add("track", trackId);
-
-            await webSocket.SendAsync(data.ToString());
+            var data = new JObject {{"op", "play"}, {"guildId", $"{guildId}"}, {"track", trackId}};
+            await webSocket.SendAsync($"{data}");
         }
 
         internal BaseSocketClient GetDiscordClient()
@@ -193,16 +180,20 @@ namespace SharpLink
                     try
                     {
                         await webSocket.Connect();
-                    } catch(Exception ex)
+                    }
+                    catch (Exception ex)
                     {
-                        logger.Log($"Exception", LogSeverity.Debug, ex);
-                    } finally
+                        logger.Log("Exception", LogSeverity.Debug, ex);
+                    }
+                    finally
                     {
                         if (!webSocket.IsConnected())
                         {
                             connectionWait = connectionWait + 3000;
-                            logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}", LogSeverity.Warning);
-                            logger.Log($"Waiting {connectionWait / 1000} seconds before reconnecting", LogSeverity.Warning);
+                            logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}",
+                                LogSeverity.Warning);
+                            logger.Log($"Waiting {connectionWait / 1000} seconds before reconnecting",
+                                LogSeverity.Warning);
                         }
                     }
 
@@ -220,102 +211,104 @@ namespace SharpLink
             return Task.Run(() =>
             {
                 if (baseDiscordClient.CurrentUser == null)
-                    throw new InvalidOperationException("Can't connect when CurrentUser is null. Please wait until Discord connects");
+                    throw new InvalidOperationException(
+                        "Can't connect when CurrentUser is null. Please wait until Discord connects");
 
                 lavalinkCancellation = new CancellationTokenSource();
 
                 // Setup the lavalink websocket connection
                 webSocket = new LavalinkWebSocket(this, config);
 
-                webSocket.OnReceive += (message) =>
+                webSocket.OnReceive += message =>
                 {
                     // TODO: Implement stats event
-                    switch((string)message["op"])
+                    switch ((string) message["op"])
                     {
                         case "playerUpdate":
+                        {
+                            logger.Log("Received Dispatch (PLAYER_UPDATE)", LogSeverity.Debug);
+
+                            var guildId = (ulong) message["guildId"];
+
+                            if (players.ContainsKey(guildId))
                             {
-                                logger.Log("Received Dispatch (PLAYER_UPDATE)", LogSeverity.Debug);
+                                var player = players[guildId];
+                                var currentTrack = player.CurrentTrack;
 
-                                ulong guildId = (ulong)message["guildId"];
-
-                                if (players.ContainsKey(guildId))
-                                {
-                                    LavalinkPlayer player = players[guildId];
-                                    LavalinkTrack currentTrack = player.CurrentTrack;
-
-                                    player.FireEvent(Event.PlayerUpdate, message["state"]["position"]);
-                                    PlayerUpdate?.InvokeAsync(player, currentTrack, (long)message["state"]["position"]);
-                                }
-
-                                break;
+                                player.FireEvent(Event.PlayerUpdate, message["state"]["position"]);
+                                PlayerUpdate?.InvokeAsync(player, currentTrack, (long) message["state"]["position"]);
                             }
+
+                            break;
+                        }
 
                         case "event":
+                        {
+                            var guildId = (ulong) message["guildId"];
+
+                            if (players.ContainsKey(guildId))
                             {
-                                ulong guildId = (ulong)message["guildId"];
+                                var player = players[guildId];
+                                var currentTrack = player.CurrentTrack;
 
-                                if (players.ContainsKey(guildId))
+                                switch ((string) message["type"])
                                 {
-                                    LavalinkPlayer player = players[guildId];
-                                    LavalinkTrack currentTrack = player.CurrentTrack;
-
-                                    switch ((string)message["type"])
+                                    case "TrackEndEvent":
                                     {
-                                        case "TrackEndEvent":
-                                            {
-                                                logger.Log("Received Dispatch (TRACK_END_EVENT)", LogSeverity.Debug);
-                                                
-                                                player.FireEvent(Event.TrackEnd, message["reason"]);
-                                                TrackEnd?.InvokeAsync(player, currentTrack, (string)message["reason"]);
+                                        logger.Log("Received Dispatch (TRACK_END_EVENT)", LogSeverity.Debug);
 
-                                                break;
-                                            }
+                                        player.FireEvent(Event.TrackEnd, message["reason"]);
+                                        TrackEnd?.InvokeAsync(player, currentTrack, (string) message["reason"]);
 
-                                        case "TrackExceptionEvent":
-                                            {
-                                                logger.Log("Received Dispatch (TRACK_EXCEPTION_EVENT)", LogSeverity.Debug);
+                                        break;
+                                    }
 
-                                                player.FireEvent(Event.TrackException, message["error"]);
-                                                TrackException?.InvokeAsync(player, currentTrack, (string)message["error"]);
+                                    case "TrackExceptionEvent":
+                                    {
+                                        logger.Log("Received Dispatch (TRACK_EXCEPTION_EVENT)", LogSeverity.Debug);
 
-                                                break;
-                                            }
+                                        player.FireEvent(Event.TrackException, message["error"]);
+                                        TrackException?.InvokeAsync(player, currentTrack, (string) message["error"]);
 
-                                        case "TrackStuckEvent":
-                                            {
-                                                logger.Log("Received Dispatch (TRACK_STUCK_EVENT)", LogSeverity.Debug);
+                                        break;
+                                    }
 
-                                                player.FireEvent(Event.TrackStuck, message["thresholdMs"]);
-                                                TrackStuck?.InvokeAsync(player, currentTrack, (long)message["thresholdMs"]);
+                                    case "TrackStuckEvent":
+                                    {
+                                        logger.Log("Received Dispatch (TRACK_STUCK_EVENT)", LogSeverity.Debug);
 
-                                                break;
-                                            }
+                                        player.FireEvent(Event.TrackStuck, message["thresholdMs"]);
+                                        TrackStuck?.InvokeAsync(player, currentTrack, (long) message["thresholdMs"]);
 
-                                        default:
-                                            {
-                                                logger.Log($"Received Unknown Event Type {(string)message["type"]}", LogSeverity.Debug);
+                                        break;
+                                    }
 
-                                                break;
-                                            }
+                                    default:
+                                    {
+                                        logger.Log($"Received Unknown Event Type {(string) message["type"]}",
+                                            LogSeverity.Debug);
+
+                                        break;
                                     }
                                 }
-
-                                break;
                             }
+
+                            break;
+                        }
 
                         case "stats":
-                            {
-                                Stats?.InvokeAsync(new LavalinkStats(message));
+                        {
+                            Stats?.InvokeAsync(new LavalinkStats(message));
 
-                                break;
-                            }
+                            break;
+                        }
 
                         default:
-                            {
-                                logger.Log($"Received Uknown Dispatch ({(string)message["op"]})", LogSeverity.Debug);
+                        {
+                            logger.Log($"Received Uknown Dispatch ({(string) message["op"]})", LogSeverity.Debug);
 
-                                break;
-                            }
+                            break;
+                        }
                     }
 
                     return Task.CompletedTask;
@@ -361,7 +354,7 @@ namespace SharpLink
             // Disconnect from the channel first for a fresh session id
             await voiceChannel.DisconnectAsync();
 
-            LavalinkPlayer player = new LavalinkPlayer(this, voiceChannel);
+            var player = new LavalinkPlayer(this, voiceChannel);
             players.Add(voiceChannel.GuildId, player);
 
             // Initiates the voice connection
@@ -377,10 +370,7 @@ namespace SharpLink
         /// <returns></returns>
         public LavalinkPlayer GetPlayer(ulong guildId)
         {
-            if (players.ContainsKey(guildId))
-                return players[guildId];
-
-            return null;
+            return players.ContainsKey(guildId) ? players[guildId] : null;
         }
 
         /// <summary>
@@ -397,18 +387,23 @@ namespace SharpLink
 
         private async Task<JArray> RequestLoadTracksAsync(string identifier)
         {
-            DateTime requestTime = DateTime.UtcNow;
-            string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
+            var requestTime = DateTime.UtcNow;
+            var response =
+                await client.GetStringAsync(
+                    $"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
             logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
 
             // Lavalink version 2 and 3 support
-            JToken json = JToken.Parse(response);
-            if (json is JArray)
-                return json as JArray;
-            else if (json is JObject && json["tracks"] != null)
-                return json["tracks"] as JArray;
-            else
-                return null;
+            var json = JToken.Parse(response);
+            switch (json)
+            {
+                case JArray array:
+                    return array;
+                case JObject _ when json["tracks"] != null:
+                    return json["tracks"] as JArray;
+                default:
+                    return null;
+            }
         }
 
         /// <summary>
@@ -418,14 +413,14 @@ namespace SharpLink
         /// <returns></returns>
         public async Task<LavalinkTrack> GetTrackAsync(string identifier)
         {
-            JArray json = await RequestLoadTracksAsync(identifier);
+            var json = await RequestLoadTracksAsync(identifier);
             if (json == null)
                 return null;
 
             if (json.Count == 0)
                 return null;
 
-            JToken jsonTrack = json.First;
+            var jsonTrack = json.First;
             return new LavalinkTrack(jsonTrack);
         }
 
@@ -438,6 +433,7 @@ namespace SharpLink
         public LavalinkTrack GetTrackFromId(string trackId)
         {
             #region BYTE_REF
+
             /*
                 Thank you sedmelluq for this info
 
@@ -457,64 +453,67 @@ namespace SharpLink
                 if source is http or local, then: container type (text)
                 position in ms (8-byte integer). always 0 for tracks provided by lavalink
              */
+
             #endregion
 
             try
             {
-                byte[] trackBytes = Convert.FromBase64String(trackId);
-                int offset = 5;
+                var trackBytes = Convert.FromBase64String(trackId);
+                var offset = 5;
 
                 // Skipping size, flags, and message version at the moment
 
-                ushort titleSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
-                string title = Encoding.UTF8.GetString(trackBytes, offset + 2, titleSize);
+                var titleSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                var title = Encoding.UTF8.GetString(trackBytes, offset + 2, titleSize);
                 offset += 2 + titleSize;
 
-                ushort authorSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
-                string author = Encoding.UTF8.GetString(trackBytes, offset + 2, authorSize);
+                var authorSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                var author = Encoding.UTF8.GetString(trackBytes, offset + 2, authorSize);
                 offset += 2 + authorSize;
 
-                ulong length = Util.SwapEndianess(BitConverter.ToUInt64(trackBytes, offset));
+                var length = Util.SwapEndianess(BitConverter.ToUInt64(trackBytes, offset));
                 offset += 8;
 
-                ushort identifierSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
-                string identifier = Encoding.UTF8.GetString(trackBytes, offset + 2, identifierSize);
+                var identifierSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                var identifier = Encoding.UTF8.GetString(trackBytes, offset + 2, identifierSize);
                 offset += 2 + identifierSize;
 
-                bool stream = BitConverter.ToBoolean(trackBytes, offset);
+                var stream = BitConverter.ToBoolean(trackBytes, offset);
                 offset += 1;
 
-                bool urlPresent = BitConverter.ToBoolean(trackBytes, offset);
+                var urlPresent = BitConverter.ToBoolean(trackBytes, offset);
                 offset += 1;
 
                 string url = null;
                 if (urlPresent)
                 {
-                    ushort urlSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                    var urlSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
                     url = Encoding.UTF8.GetString(trackBytes, offset + 2, urlSize);
                     offset += 2 + urlSize;
                 }
 
                 // Source name is not used in SharpLink outside of this method
-                ushort sourceNameSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
-                string sourceName = Encoding.UTF8.GetString(trackBytes, offset + 2, sourceNameSize);
+                var sourceNameSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                var sourceName = Encoding.UTF8.GetString(trackBytes, offset + 2, sourceNameSize);
                 offset += 2 + sourceNameSize;
 
                 if (sourceName == "local" || sourceName == "http")
                 {
                     // This is ignored and not used but instead we skip the bytes
-                    ushort containerTypeSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
+                    var containerTypeSize = Util.SwapEndianess(BitConverter.ToUInt16(trackBytes, offset));
                     offset += 2 + containerTypeSize;
                 }
 
-                ulong position = Util.SwapEndianess(BitConverter.ToUInt64(trackBytes, offset));
+                var position = Util.SwapEndianess(BitConverter.ToUInt64(trackBytes, offset));
 
                 return new LavalinkTrack(trackId, title, author, length, identifier, stream, url, position);
-            } catch(ArgumentOutOfRangeException ex)
+            }
+            catch (ArgumentOutOfRangeException ex)
             {
                 // This exception is thrown when the bytes are parsed invalidly and don't have the proper format
                 throw new ArgumentException("TrackId failed to parse", ex);
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 // Any other error is likely an invalid track id
                 throw new ArgumentException("TrackId is not valid", ex);
@@ -528,12 +527,12 @@ namespace SharpLink
         /// <returns></returns>
         public async Task<IReadOnlyCollection<LavalinkTrack>> GetTracksAsync(string identifier)
         {
-            JArray json = await RequestLoadTracksAsync(identifier);
+            var json = await RequestLoadTracksAsync(identifier);
             if (json == null)
                 return null;
 
-            List<LavalinkTrack> tracks = new List<LavalinkTrack>();
-            foreach(JToken jsonTrack in json)
+            var tracks = new List<LavalinkTrack>();
+            foreach (var jsonTrack in json)
             {
                 tracks.Add(new LavalinkTrack(jsonTrack));
             }

@@ -1,9 +1,9 @@
-﻿using Discord;
+﻿using System;
+using System.Threading.Tasks;
+using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
 using SharpLink.Enums;
-using System;
-using System.Threading.Tasks;
 
 namespace SharpLink
 {
@@ -70,7 +70,7 @@ namespace SharpLink
         {
             if (!Playing) throw new InvalidOperationException("The player is currently paused");
 
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "pause");
             data.Add("guildId", initialVoiceChannel.GuildId.ToString());
             data.Add("pause", true);
@@ -88,7 +88,7 @@ namespace SharpLink
         {
             if (Playing) throw new InvalidOperationException("The player is not currently paused");
 
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "pause");
             data.Add("guildId", initialVoiceChannel.GuildId.ToString());
             data.Add("pause", false);
@@ -104,7 +104,7 @@ namespace SharpLink
         /// <returns></returns>
         public async Task StopAsync()
         {
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "stop");
             data.Add("guildId", initialVoiceChannel.GuildId.ToString());
 
@@ -120,7 +120,7 @@ namespace SharpLink
         /// <returns></returns>
         public async Task SeekAsync(int position)
         {
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "seek");
             data.Add("guildId", initialVoiceChannel.GuildId.ToString());
             data.Add("position", position);
@@ -138,7 +138,7 @@ namespace SharpLink
             if (volume > 150)
                 throw new ArgumentOutOfRangeException("Volume cannot be more than 150");
 
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "volume");
             data.Add("guildId", initialVoiceChannel.GuildId.ToString());
             data.Add("volume", volume);
@@ -199,13 +199,13 @@ namespace SharpLink
             {
                 case SessionChange.Connect:
                     {
-                        SocketVoiceServer voiceServer = (SocketVoiceServer)changeData;
-                        JObject eventData = new JObject();
+                        var voiceServer = (SocketVoiceServer)changeData;
+                        var eventData = new JObject();
                         eventData.Add("token", voiceServer.Token);
                         eventData.Add("guild_id", voiceServer.Guild.Id.ToString());
                         eventData.Add("endpoint", voiceServer.Endpoint);
 
-                        JObject data = new JObject();
+                        var data = new JObject();
                         data.Add("op", "voiceUpdate");
                         data.Add("guildId", voiceServer.Guild.Id.ToString());
                         data.Add("sessionId", sessionId);
@@ -218,9 +218,9 @@ namespace SharpLink
 
                 case SessionChange.Disconnect:
                     {
-                        ulong guildId = (ulong)changeData;
+                        var guildId = (ulong)changeData;
 
-                        JObject data = new JObject();
+                        var data = new JObject();
                         data.Add("op", "destroy");
                         data.Add("guildId", guildId.ToString());
 

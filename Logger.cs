@@ -1,7 +1,5 @@
-﻿using Discord;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System;
+using Discord;
 
 namespace SharpLink
 {

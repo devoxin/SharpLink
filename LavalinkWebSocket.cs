@@ -1,11 +1,11 @@
-﻿using Discord;
-using Newtonsoft.Json.Linq;
-using SharpLink.Events;
-using System;
+﻿using System;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Discord;
+using Newtonsoft.Json.Linq;
+using SharpLink.Events;
 
 namespace SharpLink
 {
@@ -13,7 +13,7 @@ namespace SharpLink
     {
         private ClientWebSocket webSocket;
         private Uri hostUri;
-        private Boolean Connected = false;
+        private Boolean Connected;
         private LavalinkManager manager;
         private LavalinkManagerConfig config;
 
@@ -43,8 +43,8 @@ namespace SharpLink
 
             while (webSocket.State == WebSocketState.Open)
             {
-                string jsonString = await ReceiveAsync(webSocket);
-                JObject json = JObject.Parse(jsonString);
+                var jsonString = await ReceiveAsync(webSocket);
+                var json = JObject.Parse(jsonString);
 
                 OnReceive?.InvokeAsync(json);
             }
@@ -60,14 +60,14 @@ namespace SharpLink
         {
             // TODO: Probably should optimize this (better resource allocation/management)
 
-            byte[] temporaryBuffer = new byte[8192];
-            byte[] buffer = new byte[8192 * 16];
-            int offset = 0;
-            bool end = false;
+            var temporaryBuffer = new byte[8192];
+            var buffer = new byte[8192 * 16];
+            var offset = 0;
+            var end = false;
 
             while (!end)
             {
-                WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(temporaryBuffer), CancellationToken.None);
+                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(temporaryBuffer), CancellationToken.None);
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
@@ -98,7 +98,7 @@ namespace SharpLink
 
         internal async Task SendAsync(string message)
         {
-            byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+            var messageBytes = Encoding.UTF8.GetBytes(message);
             await webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
         }
 

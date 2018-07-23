@@ -1,18 +1,15 @@
 ﻿using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SharpLink.Stats
 {
     public class LavalinkStats
     {
         public readonly int PlayingPlayers = -1;
-        public readonly MemoryStats Memory = null;
+        public readonly MemoryStats Memory;
         public readonly int Players = -1;
-        public readonly CPUStats CPU = null;
+        public readonly CPUStats CPU;
         public readonly long Uptime = -1;
-        public readonly FrameStats FrameStats = null;
+        public readonly FrameStats FrameStats;
 
         internal LavalinkStats(JObject stats)
         {
