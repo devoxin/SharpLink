@@ -11,41 +11,43 @@ namespace SharpLink
 {
     internal class LavalinkWebSocket
     {
+        private int Tries;
+        private bool Connected;
+        private readonly Uri HostUri;
         private ClientWebSocket webSocket;
-        private Uri hostUri;
-        private Boolean Connected;
-        private LavalinkManager manager;
-        private LavalinkManagerConfig config;
+        private readonly LavalinkManager Manager;
+        private readonly LavalinkManagerConfig Config;
 
         #region EVENTS
+
         public event AsyncEvent<JObject> OnReceive;
         public event AsyncEvent<WebSocketCloseStatus?, string> OnClosed;
+
         #endregion
 
         internal LavalinkWebSocket(LavalinkManager manager, LavalinkManagerConfig config)
         {
-            this.manager = manager;
-            this.config = config;
-            hostUri = new Uri($"ws://{config.WebSocketHost}:{config.WebSocketPort}");
+            Config = config;
+            Manager = manager;
+            HostUri = new Uri($"ws://{Config.WebSocketHost}:{Config.WebSocketPort}");
         }
 
         private async Task ConnectWebSocketAsync()
         {
             webSocket = new ClientWebSocket();
-            webSocket.Options.SetRequestHeader("Authorization", config.Authorization);
-            webSocket.Options.SetRequestHeader("Num-Shards", config.TotalShards.ToString());
-            webSocket.Options.SetRequestHeader("User-Id", manager.GetDiscordClient().CurrentUser.Id.ToString());
+            webSocket.Options.SetRequestHeader("Authorization", Config.Authorization);
+            webSocket.Options.SetRequestHeader("Num-Shards", Config.TotalShards.ToString());
+            webSocket.Options.SetRequestHeader("User-Id", Manager.GetDiscordClient().CurrentUser.Id.ToString());
 
-            manager.logger.Log($"Connecting to Lavalink node at {GetHostUri()}", LogSeverity.Info);
-            await webSocket.ConnectAsync(hostUri, CancellationToken.None);
+            Manager.logger.Log($"Connecting to Lavalink node at {GetHostUri()}");
+            await webSocket.ConnectAsync(HostUri, CancellationToken.None);
             Connected = true;
-            manager.logger.Log($"Connected to Lavalink node", LogSeverity.Info);
+            Manager.logger.Log("Connected to Lavalink node");
 
-            while (webSocket.State == WebSocketState.Open)
+            while (webSocket.State == WebSocketState.Open && !(Tries > Config.MaxNumberOfTries))
             {
                 var jsonString = await ReceiveAsync(webSocket);
                 var json = JObject.Parse(jsonString);
-
                 OnReceive?.InvokeAsync(json);
             }
         }
@@ -56,7 +58,7 @@ namespace SharpLink
                 await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
         }
 
-        private async Task<string> ReceiveAsync(ClientWebSocket webSocket)
+        private async Task<string> ReceiveAsync(WebSocket socket)
         {
             // TODO: Probably should optimize this (better resource allocation/management)
 
@@ -67,13 +69,18 @@ namespace SharpLink
 
             while (!end)
             {
-                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(temporaryBuffer), CancellationToken.None);
+                var result =
+                    await socket.ReceiveAsync(new ArraySegment<byte>(temporaryBuffer), CancellationToken.None);
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     OnClosed?.InvokeAsync(result.CloseStatus, result.CloseStatusDescription);
                     Connected = false;
-                    manager.logger.Log($"Disconnected from Lavalink node ({(int)result.CloseStatus}, {result.CloseStatusDescription})", LogSeverity.Info);
+                    Manager.logger.Log(
+                        $"Disconnected from Lavalink node ({(int) result.CloseStatus}, {result.CloseStatusDescription})");
+                    Tries++;
+                    if (Tries >= Config.MaxNumberOfTries)
+                        Manager.logger.Log("Maximum number of tries reached.", LogSeverity.Critical);
                 }
                 else
                 {
@@ -82,16 +89,17 @@ namespace SharpLink
                     temporaryBuffer = new byte[8192];
 
                     if (result.EndOfMessage)
-                    {
                         end = true;
-                    }
+
+                    if (Tries > 0)
+                        Tries = 0;
                 }
             }
 
             return Encoding.UTF8.GetString(buffer);
         }
 
-        internal Boolean IsConnected()
+        internal bool IsConnected()
         {
             return webSocket != null && Connected;
         }
@@ -99,7 +107,8 @@ namespace SharpLink
         internal async Task SendAsync(string message)
         {
             var messageBytes = Encoding.UTF8.GetBytes(message);
-            await webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
+            await webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true,
+                CancellationToken.None);
         }
 
         internal async Task Connect()
@@ -114,7 +123,7 @@ namespace SharpLink
 
         internal string GetHostUri()
         {
-            return hostUri.AbsoluteUri;
+            return HostUri.AbsoluteUri;
         }
     }
 }
