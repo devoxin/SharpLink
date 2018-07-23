@@ -11,15 +11,17 @@ namespace SharpLink
     public class LavalinkPlayer
     {
         private LavalinkManager manager;
-        private IVoiceChannel initialVoiceChannel;
-        private string sessionId = "";
         private LavalinkTrack currentTrack;
+        private string sessionId = string.Empty;
+        private IVoiceChannel initialVoiceChannel;
 
         #region PUBLIC_FIELDS
+
         public bool Playing { get; private set; }
         public long CurrentPosition { get; private set; }
-        public LavalinkTrack CurrentTrack { get { return currentTrack; } }
-        public IVoiceChannel VoiceChannel { get { return initialVoiceChannel; } }
+        public LavalinkTrack CurrentTrack => currentTrack;
+        public IVoiceChannel VoiceChannel => initialVoiceChannel;
+
         #endregion
 
         internal LavalinkPlayer(LavalinkManager manager, IVoiceChannel voiceChannel)
@@ -56,9 +58,7 @@ namespace SharpLink
         public async Task PlayAsync(LavalinkTrack track)
         {
             currentTrack = track;
-
             await manager.PlayTrackAsync(track.TrackId, initialVoiceChannel.GuildId);
-
             Playing = true;
         }
 
@@ -70,13 +70,13 @@ namespace SharpLink
         {
             if (!Playing) throw new InvalidOperationException("The player is currently paused");
 
-            var data = new JObject();
-            data.Add("op", "pause");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
-            data.Add("pause", true);
-
-            await manager.GetWebSocket().SendAsync(data.ToString());
-
+            var data = new JObject
+            {
+                {"op", "pause"},
+                {"guildId", $"{initialVoiceChannel.GuildId}"},
+                {"pause", true}
+            };
+            await manager.GetWebSocket().SendAsync($"{data}");
             Playing = false;
         }
 
@@ -88,13 +88,13 @@ namespace SharpLink
         {
             if (Playing) throw new InvalidOperationException("The player is not currently paused");
 
-            var data = new JObject();
-            data.Add("op", "pause");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
-            data.Add("pause", false);
-
-            await manager.GetWebSocket().SendAsync(data.ToString());
-
+            var data = new JObject
+            {
+                {"op", "pause"},
+                {"guildId", $"{initialVoiceChannel.GuildId}"},
+                {"pause", false}
+            };
+            await manager.GetWebSocket().SendAsync($"{data}");
             Playing = true;
         }
 
@@ -104,12 +104,8 @@ namespace SharpLink
         /// <returns></returns>
         public async Task StopAsync()
         {
-            var data = new JObject();
-            data.Add("op", "stop");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
-
-            await manager.GetWebSocket().SendAsync(data.ToString());
-
+            var data = new JObject {{"op", "stop"}, {"guildId", $"{initialVoiceChannel.GuildId}"}};
+            await manager.GetWebSocket().SendAsync($"{data}");
             Playing = false;
         }
 
@@ -120,12 +116,14 @@ namespace SharpLink
         /// <returns></returns>
         public async Task SeekAsync(int position)
         {
-            var data = new JObject();
-            data.Add("op", "seek");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
-            data.Add("position", position);
+            var data = new JObject
+            {
+                {"op", "seek"},
+                {"guildId", $"{initialVoiceChannel.GuildId}"},
+                {"position", position}
+            };
 
-            await manager.GetWebSocket().SendAsync(data.ToString());
+            await manager.GetWebSocket().SendAsync($"{data}");
         }
 
         /// <summary>
@@ -136,50 +134,48 @@ namespace SharpLink
         public async Task SetVolumeAsync(uint volume)
         {
             if (volume > 150)
-                throw new ArgumentOutOfRangeException("Volume cannot be more than 150");
+                throw new ArgumentOutOfRangeException(nameof(volume), "Volume cannot be more than 150");
 
-            var data = new JObject();
-            data.Add("op", "volume");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
-            data.Add("volume", volume);
+            var data = new JObject
+            {
+                {"op", "volume"},
+                {"guildId", $"{initialVoiceChannel.GuildId}"},
+                {"volume", volume}
+            };
 
-            await manager.GetWebSocket().SendAsync(data.ToString());
+            await manager.GetWebSocket().SendAsync($"{data}");
         }
 
         internal void FireEvent(Event eventType, JToken eventData)
         {
-            switch(eventType)
+            switch (eventType)
             {
                 case Event.PlayerUpdate:
-                    {
-                        CurrentPosition = (long)eventData;
-
-                        break;
-                    }
+                {
+                    CurrentPosition = (long) eventData;
+                    break;
+                }
 
                 case Event.TrackEnd:
-                    {
-                        currentTrack = null;
-                        Playing = true;
-
-                        break;
-                    }
+                {
+                    currentTrack = null;
+                    Playing = true;
+                    break;
+                }
 
                 case Event.TrackException:
-                    {
-                        currentTrack = null;
-                        Playing = false;
-
-                        break;
-                    }
+                {
+                    currentTrack = null;
+                    Playing = false;
+                    break;
+                }
 
                 case Event.TrackStuck:
-                    {
-                        currentTrack = null;
-                        Playing = false;
-
-                        break;
-                    }
+                {
+                    currentTrack = null;
+                    Playing = false;
+                    break;
+                }
             }
         }
 
@@ -195,39 +191,36 @@ namespace SharpLink
 
         internal async Task UpdateSessionAsync(SessionChange change, object changeData = null)
         {
-            switch(change)
+            switch (change)
             {
                 case SessionChange.Connect:
+                {
+                    var voiceServer = (SocketVoiceServer) changeData;
+                    var eventData = new JObject
                     {
-                        var voiceServer = (SocketVoiceServer)changeData;
-                        var eventData = new JObject();
-                        eventData.Add("token", voiceServer.Token);
-                        eventData.Add("guild_id", voiceServer.Guild.Id.ToString());
-                        eventData.Add("endpoint", voiceServer.Endpoint);
+                        {"token", voiceServer.Token},
+                        {"guild_id", voiceServer.Guild.Id.ToString()},
+                        {"endpoint", voiceServer.Endpoint}
+                    };
 
-                        var data = new JObject();
-                        data.Add("op", "voiceUpdate");
-                        data.Add("guildId", voiceServer.Guild.Id.ToString());
-                        data.Add("sessionId", sessionId);
-                        data.Add("event", eventData);
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
-                        break;
-                    }
+                    var data = new JObject
+                    {
+                        {"op", "voiceUpdate"},
+                        {"guildId", $"{voiceServer.Guild.Id}"},
+                        {"sessionId", sessionId},
+                        {"event", eventData}
+                    };
+                    await manager.GetWebSocket().SendAsync($"{data}");
+                    break;
+                }
 
                 case SessionChange.Disconnect:
-                    {
-                        var guildId = (ulong)changeData;
-
-                        var data = new JObject();
-                        data.Add("op", "destroy");
-                        data.Add("guildId", guildId.ToString());
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
-                        break;
-                    }
+                {
+                    var guildId = (ulong) changeData;
+                    var data = new JObject {{"op", "destroy"}, {"guildId", $"{guildId}"}};
+                    await manager.GetWebSocket().SendAsync($"{data}");
+                    break;
+                }
             }
         }
     }
