@@ -44,8 +44,11 @@ namespace SharpLink
             Connected = true;
             Manager.logger.Log("Connected to Lavalink node");
 
-            while (webSocket.State == WebSocketState.Open && !(Tries > Config.MaxNumberOfTries))
+            while (webSocket.State == WebSocketState.Open)
             {
+                if (Tries == 0) continue;
+                if (Tries > Config.MaxNumberOfTries)
+                    break;
                 var jsonString = await ReceiveAsync(webSocket);
                 var json = JObject.Parse(jsonString);
                 OnReceive?.InvokeAsync(json);
@@ -79,7 +82,7 @@ namespace SharpLink
                     Manager.logger.Log(
                         $"Disconnected from Lavalink node ({(int) result.CloseStatus}, {result.CloseStatusDescription})");
                     Tries++;
-                    if (Tries >= Config.MaxNumberOfTries)
+                    if (Tries >= Config.MaxNumberOfTries && Config.MaxNumberOfTries != 0)
                         Manager.logger.Log("Maximum number of tries reached.", LogSeverity.Critical);
                 }
                 else
