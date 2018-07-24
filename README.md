@@ -9,21 +9,21 @@ A [Lavalink](https://github.com/Frederikam/Lavalink) wrapper for Discord.Net!
 - Once Lavalink is up and running follow the code example below to setup Sharplink.
 
 ```cs
-var client = new DiscordSocketClient();
-var lavalinkManager = new LavalinkManager(client, new LavalinkManagerConfig
+DiscordSocketClient client = new DiscordSocketClient();
+LavalinkManager lavalinkManager = new LavalinkManager(client, new LavalinkManagerConfig
 {
     RESTHost = "localhost",
     RESTPort = 2333,
     WebSocketHost = "localhost",
     WebSocketPort = 80,
     Authorization = "YOUR_SECRET_AUTHORIZATION_KEY",
-    TotalShards = 1 // Set this to the total amount of shards your bot uses
+    TotalShards = 1 
 });
 ```
 *Notes:* 
 > You don't have to pass a `LavalinkManagerConfig` since Sharplink uses the default config.
 
-> If you don't know what the `TotalShards` are for your bot, use `DiscordRestClient#GetRecommendedShardCountAsync()` or just set it to `1` if your bot is in <1k guilds.
+> Set `TotalShards` to the total amount of shards your bot uses. If you don't know what the `TotalShards` are for your bot, use `DiscordRestClient#GetRecommendedShardCountAsync()` or set it to `1` if your bot is in less than ~2500 guilds.
 
 > Use only a single instance of `LavaLinkManager`. If possible add `LavalinkManager` to your DI (Dependency Injection).
 
@@ -40,7 +40,7 @@ From there you can connect to audio channels, play music, and do whatever else y
 
 ```cs
 // Get LavalinkPlayer for our Guild and if it's null then join a voice channel.
-var player = lavalinkManager.GetPlayer(GUILD_ID) ?? await lavalinkManager.JoinAsync(VOICE_CHANNEL);
+LavalinkPlayer player = lavalinkManager.GetPlayer(GUILD_ID) ?? await lavalinkManager.JoinAsync(VOICE_CHANNEL);
 
 // Now that we have a player we can go ahead and grab a track and play it
 LavalinkTrack track = await lavalinkManager.GetTrackAsync("IDENTIFIER");
