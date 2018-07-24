@@ -15,14 +15,15 @@ namespace SharpLink
 {
     public class LavalinkManager
     {
+        private int Tries;
         private LavalinkWebSocket webSocket;
-        private LavalinkManagerConfig config;
-        private BaseSocketClient baseDiscordClient;
-        private SemaphoreSlim playerLock = new SemaphoreSlim(1, 1);
-        private Dictionary<ulong, LavalinkPlayer> players = new Dictionary<ulong, LavalinkPlayer>();
+        private readonly LavalinkManagerConfig config;
+        private readonly BaseSocketClient baseDiscordClient;
+        private readonly SemaphoreSlim playerLock = new SemaphoreSlim(1, 1);
+        private readonly Dictionary<ulong, LavalinkPlayer> players = new Dictionary<ulong, LavalinkPlayer>();
         private int connectionWait = 3000;
         private CancellationTokenSource lavalinkCancellation;
-        private HttpClient client = new HttpClient();
+        private readonly HttpClient client = new HttpClient();
         internal Logger logger;
 
         #region PUBLIC_EVENTS 
@@ -172,10 +173,15 @@ namespace SharpLink
             // Continuously attempt connections to Lavalink
             Task.Run(async () =>
             {
-                while (!webSocket.IsConnected())
+                while (!webSocket.IsConnected)
                 {
                     if (lavalinkCancellation.IsCancellationRequested)
                         break;
+                    if (Tries >= config.MaxNumberOfTries && config.MaxNumberOfTries != 0)
+                    {
+                        logger.Log("Maximum number of tries reached.", LogSeverity.Warning);
+                        break;
+                    }
 
                     try
                     {
@@ -187,13 +193,17 @@ namespace SharpLink
                     }
                     finally
                     {
-                        if (!webSocket.IsConnected())
+                        if (!webSocket.IsConnected)
                         {
-                            connectionWait = connectionWait + 3000;
-                            logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}",
+                            connectionWait += 1000;
+                            logger.Log(
+                                $"Waiting {connectionWait / 1000}s before re-establishing connection at {webSocket.GetHostUri}",
                                 LogSeverity.Warning);
-                            logger.Log($"Waiting {connectionWait / 1000} seconds before reconnecting",
-                                LogSeverity.Warning);
+                            Tries++;
+                        }
+                        else
+                        {
+                            Tries = 0;
                         }
                     }
 
