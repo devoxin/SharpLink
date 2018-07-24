@@ -160,7 +160,7 @@ namespace SharpLink
                 case Event.TrackEnd:
                     {
                         currentTrack = null;
-                        Playing = true;
+                        Playing = false;
 
                         break;
                     }
