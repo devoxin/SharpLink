@@ -23,7 +23,7 @@ LavalinkManager lavalinkManager = new LavalinkManager(client, new LavalinkManage
 *Notes:* 
 > You don't have to pass a `LavalinkManagerConfig` since Sharplink uses the default config.
 
-> Set `TotalShards` to the total amount of shards your bot uses. If you don't know what the `TotalShards` are for your bot, use `DiscordRestClient#GetRecommendedShardCountAsync()` or set it to `1` if your bot is in less than ~2500 guilds.
+> Set `TotalShards` to the total amount of shards your bot uses. If you don't understand what `TotalShards` is you are probably not sharding your bot and should set this value to `1`.
 
 > Use only a single instance of `LavaLinkManager`. If possible add `LavalinkManager` to your DI (Dependency Injection).
 
