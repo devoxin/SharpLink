@@ -406,38 +406,14 @@ namespace SharpLink
             await players[guildId].DisconnectAsync();
         }
 
-        private async Task<JArray> RequestLoadTracksAsync(string identifier)
+        private async Task<JToken> RequestLoadTracksAsync(string identifier)
         {
             DateTime requestTime = DateTime.UtcNow;
             string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
             logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
 
-            // Lavalink version 2 and 3 support
             JToken json = JToken.Parse(response);
-            if (json is JArray)
-                return json as JArray;
-            else if (json is JObject && json["tracks"] != null)
-                return json["tracks"] as JArray;
-            else
-                return null;
-        }
-
-        /// <summary>
-        /// Gets a single track from the Lavalink REST API
-        /// </summary>
-        /// <param name="identifier"></param>
-        /// <returns></returns>
-        public async Task<LavalinkTrack> GetTrackAsync(string identifier)
-        {
-            JArray json = await RequestLoadTracksAsync(identifier);
-            if (json == null)
-                return null;
-
-            if (json.Count == 0)
-                return null;
-
-            JToken jsonTrack = json.First;
-            return new LavalinkTrack(jsonTrack);
+            return json;
         }
 
         /// <summary>
@@ -521,11 +497,13 @@ namespace SharpLink
                 ulong position = Util.SwapEndianess(BitConverter.ToUInt64(trackBytes, offset));
 
                 return new LavalinkTrack(trackId, title, author, length, identifier, stream, url, position);
-            } catch(ArgumentOutOfRangeException ex)
+            }
+            catch (ArgumentOutOfRangeException ex)
             {
                 // This exception is thrown when the bytes are parsed invalidly and don't have the proper format
                 throw new ArgumentException("TrackId failed to parse", ex);
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 // Any other error is likely an invalid track id
                 throw new ArgumentException("TrackId is not valid", ex);
@@ -537,19 +515,10 @@ namespace SharpLink
         /// </summary>
         /// <param name="identifier"></param>
         /// <returns></returns>
-        public async Task<IReadOnlyCollection<LavalinkTrack>> GetTracksAsync(string identifier)
+        public async Task<LoadTracksResponse> GetTracksAsync(string identifier)
         {
-            JArray json = await RequestLoadTracksAsync(identifier);
-            if (json == null)
-                return null;
-
-            List<LavalinkTrack> tracks = new List<LavalinkTrack>();
-            foreach(JToken jsonTrack in json)
-            {
-                tracks.Add(new LavalinkTrack(jsonTrack));
-            }
-
-            return tracks;
+            JToken json = await RequestLoadTracksAsync(identifier);
+            return new LoadTracksResponse(json);
         }
     }
 }

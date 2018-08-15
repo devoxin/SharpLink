@@ -7,30 +7,27 @@ using System.Threading.Tasks;
 
 namespace SharpLink
 {
-    // TODO: Add IDisposable
     public class LavalinkPlayer
     {
         private LavalinkManager manager;
-        private IVoiceChannel initialVoiceChannel;
         private string sessionId = "";
-        private LavalinkTrack currentTrack;
 
         #region PUBLIC_FIELDS
         public bool Playing { get; private set; }
         public long CurrentPosition { get; private set; }
-        public LavalinkTrack CurrentTrack { get { return currentTrack; } }
-        public IVoiceChannel VoiceChannel { get { return initialVoiceChannel; } }
+        public LavalinkTrack CurrentTrack { get; private set; }
+        public IVoiceChannel VoiceChannel { get; }
         #endregion
 
         internal LavalinkPlayer(LavalinkManager manager, IVoiceChannel voiceChannel)
         {
             this.manager = manager;
-            initialVoiceChannel = voiceChannel;
+            VoiceChannel = voiceChannel;
         }
 
         internal async Task ConnectAsync()
         {
-            await initialVoiceChannel.ConnectAsync(false, false, true);
+            await VoiceChannel.ConnectAsync(false, false, true);
         }
 
         // TODO: Implement MoveAsync()/MoveNodeAsync() where we explicitly define that we're moving Lavalink servers
@@ -41,9 +38,9 @@ namespace SharpLink
         /// <returns></returns>
         public async Task DisconnectAsync(bool semLock = false)
         {
-            await initialVoiceChannel.DisconnectAsync();
-            await UpdateSessionAsync(SessionChange.Disconnect, initialVoiceChannel.GuildId);
-            await manager.RemovePlayerAsync(initialVoiceChannel.GuildId, semLock);
+            await VoiceChannel.DisconnectAsync();
+            await UpdateSessionAsync(SessionChange.Disconnect, VoiceChannel.GuildId);
+            await manager.RemovePlayerAsync(VoiceChannel.GuildId, semLock);
 
             Playing = false;
         }
@@ -55,9 +52,9 @@ namespace SharpLink
         /// <returns></returns>
         public async Task PlayAsync(LavalinkTrack track)
         {
-            currentTrack = track;
+            CurrentTrack = track;
 
-            await manager.PlayTrackAsync(track.TrackId, initialVoiceChannel.GuildId);
+            await manager.PlayTrackAsync(track.TrackId, VoiceChannel.GuildId);
 
             Playing = true;
         }
@@ -72,7 +69,7 @@ namespace SharpLink
 
             JObject data = new JObject();
             data.Add("op", "pause");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
+            data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("pause", true);
 
             await manager.GetWebSocket().SendAsync(data.ToString());
@@ -90,7 +87,7 @@ namespace SharpLink
 
             JObject data = new JObject();
             data.Add("op", "pause");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
+            data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("pause", false);
 
             await manager.GetWebSocket().SendAsync(data.ToString());
@@ -106,7 +103,7 @@ namespace SharpLink
         {
             JObject data = new JObject();
             data.Add("op", "stop");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
+            data.Add("guildId", VoiceChannel.GuildId.ToString());
 
             await manager.GetWebSocket().SendAsync(data.ToString());
 
@@ -122,7 +119,7 @@ namespace SharpLink
         {
             JObject data = new JObject();
             data.Add("op", "seek");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
+            data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("position", position);
 
             await manager.GetWebSocket().SendAsync(data.ToString());
@@ -140,7 +137,7 @@ namespace SharpLink
 
             JObject data = new JObject();
             data.Add("op", "volume");
-            data.Add("guildId", initialVoiceChannel.GuildId.ToString());
+            data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("volume", volume);
 
             await manager.GetWebSocket().SendAsync(data.ToString());
@@ -159,7 +156,7 @@ namespace SharpLink
 
                 case Event.TrackEnd:
                     {
-                        currentTrack = null;
+                        CurrentTrack = null;
                         Playing = false;
 
                         break;
@@ -167,7 +164,7 @@ namespace SharpLink
 
                 case Event.TrackException:
                     {
-                        currentTrack = null;
+                        CurrentTrack = null;
                         Playing = false;
 
                         break;
@@ -175,7 +172,7 @@ namespace SharpLink
 
                 case Event.TrackStuck:
                     {
-                        currentTrack = null;
+                        CurrentTrack = null;
                         Playing = false;
 
                         break;
