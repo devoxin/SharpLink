@@ -28,9 +28,9 @@ namespace SharpLink
             initialVoiceChannel = voiceChannel;
         }
 
-        internal async Task ConnectAsync(bool selfDeaf)
+        internal async Task ConnectAsync()
         {
-            await initialVoiceChannel.ConnectAsync(selfDeaf, false, true);
+            await initialVoiceChannel.ConnectAsync(false, false, true);
         }
 
         // TODO: Implement MoveAsync()/MoveNodeAsync() where we explicitly define that we're moving Lavalink servers

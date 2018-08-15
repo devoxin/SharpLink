@@ -352,9 +352,8 @@ namespace SharpLink
         /// Joins a voice channel and returns a new instance of <see cref="LavalinkPlayer"/>
         /// </summary>
         /// <param name="voiceChannel"></param>
-        /// <param name="selfDeaf">Should the bot be deafened on join?</param>
         /// <returns></returns>
-        public async Task<LavalinkPlayer> JoinAsync(IVoiceChannel voiceChannel, bool selfDeaf = true)
+        public async Task<LavalinkPlayer> JoinAsync(IVoiceChannel voiceChannel)
         {
             if (players.ContainsKey(voiceChannel.GuildId))
                 throw new InvalidOperationException("This guild is already actively connected");
@@ -366,7 +365,7 @@ namespace SharpLink
             players.Add(voiceChannel.GuildId, player);
 
             // Initiates the voice connection
-            await player.ConnectAsync(selfDeaf);
+            await player.ConnectAsync();
 
             return player;
         }
