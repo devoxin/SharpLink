@@ -204,12 +204,14 @@ namespace SharpLink
                         await webSocket.Connect();
                     } catch(Exception ex)
                     {
-                        logger.Log($"Exception", LogSeverity.Debug, ex);
+                        logger.Log("An exception occured while opening the WebSocket connection", LogSeverity.Debug, ex);
                     } finally
                     {
                         if (!webSocket.IsConnected())
                         {
-                            connectionWait = connectionWait + 3000;
+                            // Please no really long connection waits :(
+                            if (connectionWait < 30000)
+                                connectionWait = connectionWait + 3000;
                             logger.Log($"Failed to connect to Lavalink node at {webSocket.GetHostUri()}", LogSeverity.Warning);
                             logger.Log($"Waiting {connectionWait / 1000} seconds before reconnecting", LogSeverity.Warning);
                         }
@@ -229,7 +231,7 @@ namespace SharpLink
             return Task.Run(() =>
             {
                 if (baseDiscordClient.CurrentUser == null)
-                    throw new InvalidOperationException("Can't connect when CurrentUser is null. Please wait until Discord connects");
+                    throw new InvalidOperationException("Can't connect when CurrentUser is null. Please wait until Discord connects.");
 
                 lavalinkCancellation = new CancellationTokenSource();
 
