@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>1.0.0-beta-0004</Version>
+    <Version>1.0.0-beta-0005</Version>
     <Authors>Luke, NovusTheory</Authors>
     <Company />
     <PackageLicenseUrl>https://github.com/Devoxin/SharpLink/blob/master/LICENSE</PackageLicenseUrl>
@@ -10,8 +10,11 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>A lavalink wrapper for Discord.Net</Description>
     <PackageTags>Discord, discord, discordapp, Discord.Net, discord.net, Lavalink, lavalink</PackageTags>
-    <PackageReleaseNotes>- Support for stats op
-- New method LavalinkManager#GetTrackFromId() to get a LavalinkTrack from the Base64 encoded track ids</PackageReleaseNotes>
+    <PackageReleaseNotes>- Fixed deadlock in disconnect event (when disconnecting players)
+- Removed self deafen completely (no deafen icon)
+- Modified LoadTracks API
+    1. Removed GetTrackAsync
+    2. GetTracksAsync returns a LoadTracksResponse which returns more verbose info if using Lavalink v3</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/Devoxin/SharpLink</PackageProjectUrl>
   </PropertyGroup>
 

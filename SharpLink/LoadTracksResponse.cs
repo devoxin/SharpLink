@@ -35,6 +35,7 @@ namespace SharpLink
                 {
                     tracks.Add(new LavalinkTrack(jsonTrack));
                 }
+                Tracks = tracks;
             }
             else if (response is JObject && response["tracks"] != null)
             {
