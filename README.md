@@ -43,8 +43,15 @@ From there you can connect to audio channels, play music, and do whatever else y
 LavalinkPlayer player = lavalinkManager.GetPlayer(GUILD_ID) ?? await lavalinkManager.JoinAsync(VOICE_CHANNEL);
 
 // Now that we have a player we can go ahead and grab a track and play it
+LoadTracksResponse response = await lavalinkManager.GetTracksAsync("IDENTIFIER");
+// Gets the first track from the response
+LavalinkTrack = response.Tracks.First();
+await player.PlayAsync(track);
+
+// For legacy usage with GetTrackAsync() on pre beta-0005 (This is deprecated, please upgrade)
+// The below note about search results applies to this method also
 LavalinkTrack track = await lavalinkManager.GetTrackAsync("IDENTIFIER");
 await player.PlayAsync(track);
 ```
 
-*Notes:* To get a track from **Youtube** use `GetTrackAsync($"ytsearch:Query")`. To get a track from **SoundCloud** use `GetTrackAsync($"scsearch:Query")`.
+*Notes:* To get a track from **Youtube** use `GetTracksAsync($"ytsearch:Query")`. To get a track from **SoundCloud** use `GetTracksAsync($"scsearch:Query")`.
