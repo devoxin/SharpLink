@@ -39,11 +39,11 @@ namespace SharpLink
         /// Tells lavalink to destroy the voice connection and disconnects from the channel
         /// </summary>
         /// <returns></returns>
-        public async Task DisconnectAsync()
+        public async Task DisconnectAsync(bool semLock = false)
         {
             await initialVoiceChannel.DisconnectAsync();
             await UpdateSessionAsync(SessionChange.Disconnect, initialVoiceChannel.GuildId);
-            await manager.RemovePlayerAsync(initialVoiceChannel.GuildId);
+            await manager.RemovePlayerAsync(initialVoiceChannel.GuildId, semLock);
 
             Playing = false;
         }

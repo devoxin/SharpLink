@@ -113,7 +113,7 @@ namespace SharpLink
                     {
                         if (players.ContainsKey(guild.Id))
                         {
-                            await players[guild.Id].DisconnectAsync();
+                            await players[guild.Id].DisconnectAsync(true);
                             players.Remove(guild.Id);
                         }
                     }
@@ -131,7 +131,7 @@ namespace SharpLink
                     // Since this is a single shard we'll disconnect all players
                     foreach (KeyValuePair<ulong, LavalinkPlayer> player in players)
                     {
-                        await player.Value.DisconnectAsync();
+                        await player.Value.DisconnectAsync(true);
                     }
 
                     players.Clear();
@@ -170,14 +170,23 @@ namespace SharpLink
             return config;
         }
 
-        internal async Task RemovePlayerAsync(ulong guildId)
+        internal async Task RemovePlayerAsync(ulong guildId, bool semLock)
         {
-            await playerLock.WaitAsync();
+            // The purpose of the passed semLock boolean is to prevent a problem where the disconnect event
+            // already has it locked for us to use and it's simply signalling that we don't need to acquire the lock.
+            if (!semLock)
+            {
+                await playerLock.WaitAsync();
 
-            if (players.ContainsKey(guildId))
-                players.Remove(guildId);
+                if (players.ContainsKey(guildId))
+                    players.Remove(guildId);
 
-            playerLock.Release();
+                playerLock.Release();
+            } else
+            {
+                if (players.ContainsKey(guildId))
+                    players.Remove(guildId);
+            }
         }
 
         private void ConnectWebSocket()
