@@ -45,7 +45,7 @@ LavalinkPlayer player = lavalinkManager.GetPlayer(GUILD_ID) ?? await lavalinkMan
 // Now that we have a player we can go ahead and grab a track and play it
 LoadTracksResponse response = await lavalinkManager.GetTracksAsync("IDENTIFIER");
 // Gets the first track from the response
-LavalinkTrack = response.Tracks.First();
+LavalinkTrack track = response.Tracks.First();
 await player.PlayAsync(track);
 
 // For legacy usage with GetTrackAsync() on pre beta-0005 (This is deprecated, please upgrade)
