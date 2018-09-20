@@ -97,7 +97,7 @@ namespace SharpLink
                             players.Remove(oldVoiceState.VoiceChannel.Guild.Id);
                         }
                     }
-                    else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel != null && oldVoiceState.VoiceChannel.Id != newVoiceState.VoiceChannel.Id)
+                    else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel != null && oldVoiceState.VoiceChannel.Id != newVoiceState.VoiceChannel.Id && players[newVoiceState.VoiceChannel.Guild.Id] != null)
                     {
                         logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Moved)", LogSeverity.Debug);
 
