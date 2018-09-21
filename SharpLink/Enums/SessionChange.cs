@@ -5,5 +5,6 @@
         Connect,
         Disconnect,
         MoveNode,
+        Moved
     }
 }
