@@ -4,8 +4,6 @@
     {
         Connect,
         Disconnect,
-        // This will allow the session to resume if discord reconnects
-        ConnectionLost,
         MoveNode,
     }
 }
