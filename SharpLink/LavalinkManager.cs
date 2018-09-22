@@ -315,7 +315,7 @@ namespace SharpLink
                                             {
                                                 logger.Log("Received Dispatch (CONNECTION_RESUMED_EVENT)", LogSeverity.Debug);
                                                 player.FireEvent(Event.ConnectionResumed, message["Connection resumed"]);
-                                                ConnectionLost?.InvokeAsync(player, currentTrack, (string)message["Connection resumed"]);
+                                                ConnectionResumed?.InvokeAsync(player, currentTrack, (string)message["Connection resumed"]);
                                                 
                                                 break;
                                             }
