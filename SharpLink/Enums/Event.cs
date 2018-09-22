@@ -5,6 +5,8 @@
         PlayerUpdate,
         TrackEnd,
         TrackException,
-        TrackStuck
+        TrackStuck,
+        ConnectionLost,
+        ConnectionResumed
     }
 }
