@@ -1,23 +1,16 @@
-﻿using Discord;
+using System;
+using System.Threading.Tasks;
+using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
 using SharpLink.Enums;
-using System;
-using System.Threading.Tasks;
 
 namespace SharpLink
 {
     public class LavalinkPlayer
     {
-        private LavalinkManager manager;
+        private readonly LavalinkManager manager;
         private string sessionId = "";
-
-        #region PUBLIC_FIELDS
-        public bool Playing { get; private set; }
-        public long CurrentPosition { get; private set; }
-        public LavalinkTrack CurrentTrack { get; private set; }
-        public IVoiceChannel VoiceChannel { get; }
-        #endregion
 
         internal LavalinkPlayer(LavalinkManager manager, IVoiceChannel voiceChannel)
         {
@@ -33,7 +26,7 @@ namespace SharpLink
         // TODO: Implement MoveAsync()/MoveNodeAsync() where we explicitly define that we're moving Lavalink servers
 
         /// <summary>
-        /// Tells lavalink to destroy the voice connection and disconnects from the channel
+        ///     Tells lavalink to destroy the voice connection and disconnects from the channel
         /// </summary>
         /// <returns></returns>
         public async Task DisconnectAsync(bool semLock = false)
@@ -46,7 +39,7 @@ namespace SharpLink
         }
 
         /// <summary>
-        /// Plays the designated <see cref="LavalinkTrack"/>
+        ///     Plays the designated <see cref="LavalinkTrack" />
         /// </summary>
         /// <param name="track"></param>
         /// <returns></returns>
@@ -60,14 +53,14 @@ namespace SharpLink
         }
 
         /// <summary>
-        /// Pauses the player
+        ///     Pauses the player
         /// </summary>
         /// <returns></returns>
         public async Task PauseAsync()
         {
             if (!Playing) throw new InvalidOperationException("The player is currently paused");
 
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "pause");
             data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("pause", true);
@@ -78,14 +71,14 @@ namespace SharpLink
         }
 
         /// <summary>
-        /// Resumes the player
+        ///     Resumes the player
         /// </summary>
         /// <returns></returns>
         public async Task ResumeAsync()
         {
             if (Playing) throw new InvalidOperationException("The player is not currently paused");
 
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "pause");
             data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("pause", false);
@@ -96,12 +89,12 @@ namespace SharpLink
         }
 
         /// <summary>
-        /// Stops the player but does not destroy it
+        ///     Stops the player but does not destroy it
         /// </summary>
         /// <returns></returns>
         public async Task StopAsync()
         {
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "stop");
             data.Add("guildId", VoiceChannel.GuildId.ToString());
 
@@ -111,13 +104,13 @@ namespace SharpLink
         }
 
         /// <summary>
-        /// Seeks the current <see cref="LavalinkTrack"/>
+        ///     Seeks the current <see cref="LavalinkTrack" />
         /// </summary>
         /// <param name="position"></param>
         /// <returns></returns>
         public async Task SeekAsync(int position)
         {
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "seek");
             data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("position", position);
@@ -126,7 +119,7 @@ namespace SharpLink
         }
 
         /// <summary>
-        /// Sets the volume
+        ///     Sets the volume
         /// </summary>
         /// <param name="volume"></param>
         /// <returns></returns>
@@ -135,7 +128,7 @@ namespace SharpLink
             if (volume > 150)
                 throw new ArgumentOutOfRangeException("Volume cannot be more than 150");
 
-            JObject data = new JObject();
+            var data = new JObject();
             data.Add("op", "volume");
             data.Add("guildId", VoiceChannel.GuildId.ToString());
             data.Add("volume", volume);
@@ -145,7 +138,7 @@ namespace SharpLink
 
         internal void FireEvent(Event eventType, JToken eventData)
         {
-            switch(eventType)
+            switch (eventType)
             {
                 case Event.PlayerUpdate:
                     {
@@ -177,55 +170,76 @@ namespace SharpLink
 
                         break;
                     }
-            }
-        }
 
-        internal void SetSessionId(string voiceSessionId)
-        {
-            sessionId = voiceSessionId;
-        }
-
-        internal string GetSessionId()
-        {
-            return sessionId;
-        }
-
-        internal async Task UpdateSessionAsync(SessionChange change, object changeData = null)
-        {
-            switch(change)
-            {
-                case SessionChange.Connect:
+                case Event.ConnectionLost:
                     {
-                        SocketVoiceServer voiceServer = (SocketVoiceServer)changeData;
-                        JObject eventData = new JObject();
-                        eventData.Add("token", voiceServer.Token);
-                        eventData.Add("guild_id", voiceServer.Guild.Id.ToString());
-                        eventData.Add("endpoint", voiceServer.Endpoint);
-
-                        JObject data = new JObject();
-                        data.Add("op", "voiceUpdate");
-                        data.Add("guildId", voiceServer.Guild.Id.ToString());
-                        data.Add("sessionId", sessionId);
-                        data.Add("event", eventData);
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
+                        Playing = false;
                         break;
                     }
-
-                case SessionChange.Disconnect:
+                case Event.ConnectionResumed:
                     {
-                        ulong guildId = (ulong)changeData;
-
-                        JObject data = new JObject();
-                        data.Add("op", "destroy");
-                        data.Add("guildId", guildId.ToString());
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
+                        Playing = true;
                         break;
                     }
             }
         }
     }
+
+    internal void SetSessionId(string voiceSessionId)
+    {
+        sessionId = voiceSessionId;
+    }
+
+    internal string GetSessionId()
+    {
+        return sessionId;
+    }
+
+    internal async Task UpdateSessionAsync(SessionChange change, object changeData = null)
+    {
+        switch (change)
+        {
+            case SessionChange.Connect:
+                {
+                    var voiceServer = (SocketVoiceServer)changeData;
+                    var eventData = new JObject();
+                    eventData.Add("token", voiceServer.Token);
+                    eventData.Add("guild_id", voiceServer.Guild.Id.ToString());
+                    eventData.Add("endpoint", voiceServer.Endpoint);
+
+                    var data = new JObject();
+                    data.Add("op", "voiceUpdate");
+                    data.Add("guildId", voiceServer.Guild.Id.ToString());
+                    data.Add("sessionId", sessionId);
+                    data.Add("event", eventData);
+
+                    await manager.GetWebSocket().SendAsync(data.ToString());
+
+                    break;
+                }
+
+            case SessionChange.Disconnect:
+                {
+                    var guildId = (ulong)changeData;
+
+                    var data = new JObject();
+                    data.Add("op", "destroy");
+                    data.Add("guildId", guildId.ToString());
+
+                    await manager.GetWebSocket().SendAsync(data.ToString());
+
+                    break;
+                }
+        }
+    }
+
+    #region PUBLIC_FIELDS
+
+    public bool Playing { get; private set; }
+    public long CurrentPosition { get; private set; }
+    public LavalinkTrack CurrentTrack { get; private set; }
+    public IVoiceChannel VoiceChannel { get; }
+
+    #endregion
+}
 }

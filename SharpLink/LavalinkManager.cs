@@ -31,6 +31,8 @@ namespace SharpLink
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> TrackEnd;
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, long> TrackStuck;
         public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> TrackException;
+        public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> ConnectionLost;
+        public event AsyncEvent<LavalinkPlayer, LavalinkTrack, string> ConnectionResumed;
         public event AsyncEvent<LogMessage> Log;
         public event AsyncEvent<LavalinkStats> Stats;
         #endregion
@@ -301,7 +303,22 @@ namespace SharpLink
 
                                                 break;
                                             }
-
+                                        case "ConnectionLostEvent":
+                                            {
+                                                logger.Log("Received Dispatch (CONNECTION_LOST_EVENT)", LogSeverity.Debug);
+                                                player.FireEvent(Event.ConnectionLost, message["Connection lost"]);
+                                                ConnectionLost?.InvokeAsync(player, currentTrack, (string)message["Connection lost"]);
+                                                
+                                                break;
+                                            }
+                                        case "ConnectionResumedEvent":
+                                            {
+                                                logger.Log("Received Dispatch (CONNECTION_RESUMED_EVENT)", LogSeverity.Debug);
+                                                player.FireEvent(Event.ConnectionResumed, message["Connection resumed"]);
+                                                ConnectionResumed?.InvokeAsync(player, currentTrack, (string)message["Connection resumed"]);
+                                                
+                                                break;
+                                            }
                                         default:
                                             {
                                                 logger.Log($"Received Unknown Event Type {(string)message["type"]}", LogSeverity.Debug);
