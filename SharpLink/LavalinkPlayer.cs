@@ -170,91 +170,76 @@ namespace SharpLink
 
                         break;
                     }
-            }
-        }
 
-        internal void SetSessionId(string voiceSessionId)
-        {
-            sessionId = voiceSessionId;
-        }
-
-        internal string GetSessionId()
-        {
-            return sessionId;
-        }
-
-        internal async Task UpdateSessionAsync(SessionChange change, object changeData = null)
-        {
-            switch (change)
-            {
-                case SessionChange.Connect:
+                case Event.ConnectionLost:
                     {
-                        var voiceServer = (SocketVoiceServer)changeData;
-                        var eventData = new JObject();
-                        eventData.Add("token", voiceServer.Token);
-                        eventData.Add("guild_id", voiceServer.Guild.Id.ToString());
-                        eventData.Add("endpoint", voiceServer.Endpoint);
-
-                        var data = new JObject();
-                        data.Add("op", "voiceUpdate");
-                        data.Add("guildId", voiceServer.Guild.Id.ToString());
-                        data.Add("sessionId", sessionId);
-                        data.Add("event", eventData);
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
-                        break;
-                    }
-
-                case SessionChange.Disconnect:
-                    {
-                        var guildId = (ulong)changeData;
-
-                        var data = new JObject();
-                        data.Add("op", "destroy");
-                        data.Add("guildId", guildId.ToString());
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
-                        break;
-                    }
-                case SessionChange.ConnectionLost:
-                    {
-                        var guildId = (ulong)changeData;
-                        var data = new JObject();
-                        data.Add("op", "pause");
-                        data.Add("guildId", guildId.ToString());
-                        data.Add("pause", true);
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
                         Playing = false;
-
                         break;
                     }
-                case SessionChange.ConnectionResumed:
+                case Event.ConnectionResumed:
                     {
-                        var guildId = (ulong)changeData;
-                        var data = new JObject();
-                        data.Add("op", "pause");
-                        data.Add("guildId", guildId.ToString());
-                        data.Add("pause", false);
-
-                        await manager.GetWebSocket().SendAsync(data.ToString());
-
                         Playing = true;
+                        break;
                     }
-                    break;
             }
         }
-
-        #region PUBLIC_FIELDS
-
-        public bool Playing { get; private set; }
-        public long CurrentPosition { get; private set; }
-        public LavalinkTrack CurrentTrack { get; private set; }
-        public IVoiceChannel VoiceChannel { get; }
-
-        #endregion
     }
+
+    internal void SetSessionId(string voiceSessionId)
+    {
+        sessionId = voiceSessionId;
+    }
+
+    internal string GetSessionId()
+    {
+        return sessionId;
+    }
+
+    internal async Task UpdateSessionAsync(SessionChange change, object changeData = null)
+    {
+        switch (change)
+        {
+            case SessionChange.Connect:
+                {
+                    var voiceServer = (SocketVoiceServer)changeData;
+                    var eventData = new JObject();
+                    eventData.Add("token", voiceServer.Token);
+                    eventData.Add("guild_id", voiceServer.Guild.Id.ToString());
+                    eventData.Add("endpoint", voiceServer.Endpoint);
+
+                    var data = new JObject();
+                    data.Add("op", "voiceUpdate");
+                    data.Add("guildId", voiceServer.Guild.Id.ToString());
+                    data.Add("sessionId", sessionId);
+                    data.Add("event", eventData);
+
+                    await manager.GetWebSocket().SendAsync(data.ToString());
+
+                    break;
+                }
+
+            case SessionChange.Disconnect:
+                {
+                    var guildId = (ulong)changeData;
+
+                    var data = new JObject();
+                    data.Add("op", "destroy");
+                    data.Add("guildId", guildId.ToString());
+
+                    await manager.GetWebSocket().SendAsync(data.ToString());
+
+                    break;
+                }
+        }
+    }
+
+    #region PUBLIC_FIELDS
+
+    public bool Playing { get; private set; }
+    public long CurrentPosition { get; private set; }
+    public LavalinkTrack CurrentTrack { get; private set; }
+    public IVoiceChannel VoiceChannel { get; }
+
+    #endregion
+}
 }
