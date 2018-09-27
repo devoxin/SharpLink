@@ -85,7 +85,7 @@ namespace SharpLink
                     }
                     else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
                     {
-                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
+                        logger.Log($"VOICE_STATE_UPDATE({oldVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
 
                         // Disconnected
                         LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
@@ -95,6 +95,18 @@ namespace SharpLink
                             player.SetSessionId("");
                             await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
                             players.Remove(oldVoiceState.VoiceChannel.Guild.Id);
+                        }
+                    }
+                    else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel != null && oldVoiceState.VoiceChannel.Id != newVoiceState.VoiceChannel.Id)
+                    {
+                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Moved)", LogSeverity.Debug);
+
+                        // Moved
+                        LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
+
+                        if (player != null)
+                        {
+                            await player.UpdateSessionAsync(SessionChange.Moved, newVoiceState.VoiceChannel);
                         }
                     }
                 }

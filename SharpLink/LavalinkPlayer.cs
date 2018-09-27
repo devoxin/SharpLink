@@ -16,7 +16,7 @@ namespace SharpLink
         public bool Playing { get; private set; }
         public long CurrentPosition { get; private set; }
         public LavalinkTrack CurrentTrack { get; private set; }
-        public IVoiceChannel VoiceChannel { get; }
+        public IVoiceChannel VoiceChannel { get; private set; }
         #endregion
 
         internal LavalinkPlayer(LavalinkManager manager, IVoiceChannel voiceChannel)
@@ -222,6 +222,13 @@ namespace SharpLink
                         data.Add("guildId", guildId.ToString());
 
                         await manager.GetWebSocket().SendAsync(data.ToString());
+
+                        break;
+                    }
+
+                case SessionChange.Moved:
+                    {
+                        VoiceChannel = (IVoiceChannel)changeData;
 
                         break;
                     }
