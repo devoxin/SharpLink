@@ -6,7 +6,7 @@ using SharpLink.Events;
 using SharpLink.Stats;
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -67,7 +67,8 @@ namespace SharpLink
             {
                 logger.Log($"VOICE_SERVER_UPDATE({voiceServer.Guild.Id}, Updating Session)", LogSeverity.Debug);
 
-                await players[voiceServer.Guild.Id]?.UpdateSessionAsync(SessionChange.Connect, voiceServer);
+                if (players.TryGetValue(voiceServer.Guild.Id, out LavalinkPlayer player))
+                    await player.UpdateSessionAsync(SessionChange.Connect, voiceServer);
             };
 
             baseDiscordClient.UserVoiceStateUpdated += async (user, oldVoiceState, newVoiceState) =>
@@ -80,21 +81,19 @@ namespace SharpLink
                         logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Connected)", LogSeverity.Debug);
 
                         // Connected
-                        LavalinkPlayer player = players[newVoiceState.VoiceChannel.Guild.Id];
-                        player?.SetSessionId(newVoiceState.VoiceSessionId);
+                        if (players.TryGetValue(newVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
+                            player.SetSessionId(newVoiceState.VoiceSessionId);
                     }
                     else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
                     {
                         logger.Log($"VOICE_STATE_UPDATE({oldVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
 
                         // Disconnected
-                        LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
-
-                        if (player != null)
+                        if (players.TryGetValue(oldVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
                         {
                             player.SetSessionId("");
                             await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
-                            players.Remove(oldVoiceState.VoiceChannel.Guild.Id);
+                            await RemovePlayerAsync(oldVoiceState.VoiceChannel.Guild.Id, false);
                         }
                     }
                     else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel != null && oldVoiceState.VoiceChannel.Id != newVoiceState.VoiceChannel.Id)
@@ -102,12 +101,8 @@ namespace SharpLink
                         logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Moved)", LogSeverity.Debug);
 
                         // Moved
-                        LavalinkPlayer player = players[oldVoiceState.VoiceChannel.Guild.Id];
-
-                        if (player != null)
-                        {
+                        if (players.TryGetValue(oldVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
                             await player.UpdateSessionAsync(SessionChange.Moved, newVoiceState.VoiceChannel);
-                        }
                     }
                 }
             };
@@ -123,16 +118,16 @@ namespace SharpLink
                     // Disconnect all the players associated with this shard
                     foreach(SocketGuild guild in client.Guilds)
                     {
-                        if (players.ContainsKey(guild.Id))
+                        if (players.TryGetValue(guild.Id, out LavalinkPlayer player))
                         {
-                            await players[guild.Id].DisconnectAsync(true);
-                            players.Remove(guild.Id);
+                            await player.DisconnectAsync(true);
                         }
                     }
 
                     playerLock.Release();
                 };
-            } else if (baseDiscordClient is DiscordSocketClient)
+            }
+            else if (baseDiscordClient is DiscordSocketClient)
             {
                 DiscordSocketClient client = baseDiscordClient as DiscordSocketClient;
 
@@ -141,12 +136,11 @@ namespace SharpLink
                     await playerLock.WaitAsync();
 
                     // Since this is a single shard we'll disconnect all players
-                    foreach (KeyValuePair<ulong, LavalinkPlayer> player in players)
+                    foreach (KeyValuePair<ulong, LavalinkPlayer> player in players.ToList())
                     {
                         await player.Value.DisconnectAsync(true);
                     }
 
-                    players.Clear();
                     playerLock.Release();
                 };
             }
@@ -190,14 +184,13 @@ namespace SharpLink
             {
                 await playerLock.WaitAsync();
 
-                if (players.ContainsKey(guildId))
-                    players.Remove(guildId);
+                players.Remove(guildId);
 
                 playerLock.Release();
-            } else
+            }
+            else
             {
-                if (players.ContainsKey(guildId))
-                    players.Remove(guildId);
+                players.Remove(guildId);
             }
         }
 
@@ -214,10 +207,12 @@ namespace SharpLink
                     try
                     {
                         await webSocket.Connect();
-                    } catch(Exception ex)
+                    }
+                    catch (Exception ex)
                     {
                         logger.Log("An exception occured while opening the WebSocket connection", LogSeverity.Debug, ex);
-                    } finally
+                    }
+                    finally
                     {
                         if (!webSocket.IsConnected())
                         {
@@ -261,9 +256,8 @@ namespace SharpLink
 
                                 ulong guildId = (ulong)message["guildId"];
 
-                                if (players.ContainsKey(guildId))
+                                if (players.TryGetValue(guildId, out LavalinkPlayer player))
                                 {
-                                    LavalinkPlayer player = players[guildId];
                                     LavalinkTrack currentTrack = player.CurrentTrack;
 
                                     player.FireEvent(Event.PlayerUpdate, message["state"]["position"]);
@@ -277,9 +271,8 @@ namespace SharpLink
                             {
                                 ulong guildId = (ulong)message["guildId"];
 
-                                if (players.ContainsKey(guildId))
+                                if (players.TryGetValue(guildId, out LavalinkPlayer player))
                                 {
-                                    LavalinkPlayer player = players[guildId];
                                     LavalinkTrack currentTrack = player.CurrentTrack;
 
                                     switch ((string)message["type"])
@@ -400,10 +393,8 @@ namespace SharpLink
         /// <returns></returns>
         public LavalinkPlayer GetPlayer(ulong guildId)
         {
-            if (players.ContainsKey(guildId))
-                return players[guildId];
-
-            return null;
+            players.TryGetValue(guildId, out LavalinkPlayer player);
+            return player;
         }
 
         /// <summary>
@@ -412,10 +403,10 @@ namespace SharpLink
         /// <param name="guildId"></param>
         public async Task LeaveAsync(ulong guildId)
         {
-            if (!players.ContainsKey(guildId))
+            if (!players.TryGetValue(guildId, out LavalinkPlayer player))
                 throw new InvalidOperationException("This guild is not actively connected");
 
-            await players[guildId].DisconnectAsync();
+            await player.DisconnectAsync();
         }
 
         private async Task<JToken> RequestLoadTracksAsync(string identifier)
