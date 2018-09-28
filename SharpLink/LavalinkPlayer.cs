@@ -156,8 +156,9 @@ namespace SharpLink
 
                 case Event.TrackEnd:
                     {
-                        CurrentTrack = null;
-                        Playing = false;
+                        bool replaced = ((string)eventData) == "REPLACED";
+                        CurrentTrack = replaced ? CurrentTrack : null;
+                        Playing = replaced;
 
                         break;
                     }
