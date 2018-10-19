@@ -76,22 +76,13 @@ namespace SharpLink
                 // We only need voice state updates for the current user
                 if (user.Id == baseDiscordClient.CurrentUser.Id)
                 {
-                    if (oldVoiceState.VoiceChannel == null && newVoiceState.VoiceChannel != null)
-                    {
-                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Connected)", LogSeverity.Debug);
-
-                        // Connected
-                        if (players.TryGetValue(newVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
-                            player.SetSessionId(newVoiceState.VoiceSessionId);
-                    }
-                    else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
+                    if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
                     {
                         logger.Log($"VOICE_STATE_UPDATE({oldVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
 
                         // Disconnected
                         if (players.TryGetValue(oldVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
                         {
-                            player.SetSessionId("");
                             await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
                             await RemovePlayerAsync(oldVoiceState.VoiceChannel.Guild.Id, false);
                         }
@@ -374,9 +365,6 @@ namespace SharpLink
             if (players.ContainsKey(voiceChannel.GuildId))
                 throw new InvalidOperationException("This guild is already actively connected");
 
-            // Disconnect from the channel first for a fresh session id
-            await voiceChannel.DisconnectAsync();
-
             LavalinkPlayer player = new LavalinkPlayer(this, voiceChannel);
             players.Add(voiceChannel.GuildId, player);
 
@@ -412,7 +400,7 @@ namespace SharpLink
         private async Task<JToken> RequestLoadTracksAsync(string identifier)
         {
             DateTime requestTime = DateTime.UtcNow;
-            string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
+            string response = await client.GetStringAsync($"http://{config.ServerAddress}:{config.ServerPort}/loadtracks?identifier={identifier}");
             logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
 
             JToken json = JToken.Parse(response);
