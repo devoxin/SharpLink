@@ -12,10 +12,8 @@ A [Lavalink](https://github.com/Frederikam/Lavalink) wrapper for Discord.Net!
 DiscordSocketClient client = new DiscordSocketClient();
 LavalinkManager lavalinkManager = new LavalinkManager(client, new LavalinkManagerConfig
 {
-    RESTHost = "localhost",
-    RESTPort = 2333,
-    WebSocketHost = "localhost",
-    WebSocketPort = 80,
+    ServerAddress = "127.0.0.1",
+    ServerPort = 2333,
     Authorization = "YOUR_SECRET_AUTHORIZATION_KEY",
     TotalShards = 1 
 });
