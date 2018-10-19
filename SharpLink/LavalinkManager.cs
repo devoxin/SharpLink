@@ -78,9 +78,9 @@ namespace SharpLink
                 {
                     if (oldVoiceState.VoiceChannel == null && newVoiceState.VoiceChannel != null)
                     {
-                        // Connected
                         logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Connected)", LogSeverity.Debug);
 
+                        // Connected
                         if (players.TryGetValue(newVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
                             player.SetSessionId(newVoiceState.VoiceSessionId);
                     }
