@@ -10,6 +10,7 @@ namespace SharpLink
     public class LavalinkPlayer
     {
         private LavalinkManager manager;
+        private string sessionId = "";
 
         #region PUBLIC_FIELDS
         public bool Playing { get; private set; }
@@ -180,6 +181,16 @@ namespace SharpLink
             }
         }
 
+        internal void SetSessionId(string voiceSessionId)
+        {
+            sessionId = voiceSessionId;
+        }
+
+        internal string GetSessionId()
+        {
+            return sessionId;
+        }
+
         internal async Task UpdateSessionAsync(SessionChange change, object changeData = null)
         {
             switch(change)
@@ -195,7 +206,7 @@ namespace SharpLink
                         JObject data = new JObject();
                         data.Add("op", "voiceUpdate");
                         data.Add("guildId", voiceServer.Guild.Id.ToString());
-                        data.Add("sessionId", (await VoiceChannel.Guild.GetCurrentUserAsync()).VoiceSessionId);
+                        data.Add("sessionId", sessionId);
                         data.Add("event", eventData);
 
                         await manager.GetWebSocket().SendAsync(data.ToString());

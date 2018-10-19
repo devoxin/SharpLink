@@ -76,15 +76,32 @@ namespace SharpLink
                 // We only need voice state updates for the current user
                 if (user.Id == baseDiscordClient.CurrentUser.Id)
                 {
-                    if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
+                    if (oldVoiceState.VoiceChannel == null && newVoiceState.VoiceChannel != null)
+                    {
+                        logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Connected)", LogSeverity.Debug);
+
+                        if (players.TryGetValue(newVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
+                            player.SetSessionId(newVoiceState.VoiceSessionId);
+                    }
+                    else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel == null)
                     {
                         logger.Log($"VOICE_STATE_UPDATE({oldVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
 
                         // Disconnected
                         if (players.TryGetValue(oldVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
                         {
+                            player.SetSessionId("");
                             await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
                             await RemovePlayerAsync(oldVoiceState.VoiceChannel.Guild.Id, false);
+                        }
+                    }
+                    else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel != null && oldVoiceState.VoiceChannel.Id == newVoiceState.VoiceChannel.Id)
+                    {
+                        // Reconnected
+                        if (players.TryGetValue(oldVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player) && string.IsNullOrEmpty(player.GetSessionId()))
+                        {
+                            logger.Log($"VOICE_STATE_UPDATE({newVoiceState.VoiceChannel.Guild.Id}, Reconnected)", LogSeverity.Debug);
+                            player.SetSessionId(newVoiceState.VoiceSessionId);
                         }
                     }
                     else if (oldVoiceState.VoiceChannel != null && newVoiceState.VoiceChannel != null && oldVoiceState.VoiceChannel.Id != newVoiceState.VoiceChannel.Id)
