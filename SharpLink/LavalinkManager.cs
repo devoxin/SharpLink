@@ -400,7 +400,7 @@ namespace SharpLink
         private async Task<JToken> RequestLoadTracksAsync(string identifier)
         {
             DateTime requestTime = DateTime.UtcNow;
-            string response = await client.GetStringAsync($"http://{config.ServerAddress}:{config.ServerPort}/loadtracks?identifier={identifier}");
+            string response = await client.GetStringAsync($"http://{config.RESTHost}:{config.RESTPort}/loadtracks?identifier={identifier}");
             logger.Log($"GET loadtracks: {(DateTime.UtcNow - requestTime).TotalMilliseconds} ms", LogSeverity.Verbose);
 
             JToken json = JToken.Parse(response);

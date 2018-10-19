@@ -12,14 +12,18 @@ A [Lavalink](https://github.com/Frederikam/Lavalink) wrapper for Discord.Net!
 DiscordSocketClient client = new DiscordSocketClient();
 LavalinkManager lavalinkManager = new LavalinkManager(client, new LavalinkManagerConfig
 {
-    ServerAddress = "127.0.0.1",
-    ServerPort = 2333,
+    RESTHost = "localhost",
+    RESTPort = 2333,
+    WebSocketHost = "localhost",
+    WebSocketPort = 2333,
     Authorization = "YOUR_SECRET_AUTHORIZATION_KEY",
     TotalShards = 1 
 });
 ```
 *Notes:* 
 > You don't have to pass a `LavalinkManagerConfig` since Sharplink uses the default config.
+
+> As of Lavalink v3.1, in `LavalinkManagerConfig` your hosts, `RESTHost` and `WebSocketHost`, should be identical, and `RESTPort` should be identical to `WebSocketPort`.
 
 > Set `TotalShards` to the total amount of shards your bot uses. If you don't understand what `TotalShards` is you are probably not sharding your bot and should set this value to `1`.
 

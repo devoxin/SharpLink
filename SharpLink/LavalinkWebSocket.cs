@@ -26,7 +26,7 @@ namespace SharpLink
         {
             this.manager = manager;
             this.config = config;
-            hostUri = new Uri($"ws://{config.ServerAddress}:{config.ServerPort}");
+            hostUri = new Uri($"ws://{config.WebSocketHost}:{config.WebSocketPort}");
         }
 
         private async Task ConnectWebSocketAsync()
