@@ -89,7 +89,7 @@ namespace SharpLink
                         logger.Log($"VOICE_STATE_UPDATE({oldVoiceState.VoiceChannel.Guild.Id}, Disconnected)", LogSeverity.Debug);
 
                         // Disconnected
-                        if (players.TryGetValue(oldVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player))
+                        if (players.TryGetValue(oldVoiceState.VoiceChannel.Guild.Id, out LavalinkPlayer player) && !string.IsNullOrEmpty(player.GetSessionId()))
                         {
                             player.SetSessionId("");
                             await player.UpdateSessionAsync(SessionChange.Disconnect, oldVoiceState.VoiceChannel.Guild.Id);
