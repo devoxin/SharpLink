@@ -1,11 +1,11 @@
 # SharpLink
-A [Lavalink](https://github.com/Frederikam/Lavalink) wrapper for Discord.Net!
+A [Lavalink](https://github.com/freyacodes/Lavalink) wrapper for Discord.Net!
 
 [![NuGet Pre Release](https://img.shields.io/nuget/vpre/SharpLink.svg?style=flat-square)](https://www.nuget.org/packages/SharpLink/)
 
 ## `Getting Started`
 
-- Follow [these instructions](https://github.com/Frederikam/Lavalink#server-configuration) to setup Lavalink.
+- Follow [these instructions](https://github.com/freyacodes/Lavalink#server-configuration) to setup Lavalink.
 - Once Lavalink is up and running follow the code example below to setup Sharplink.
 
 ```cs
